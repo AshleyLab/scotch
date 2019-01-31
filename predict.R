@@ -37,8 +37,6 @@ getHeader <- function() {
 #Save reasults from prediction
 saveResults <- function(results, outPath) {
 
-	print(paste("printing to", outPath))
-	print(head(results))
 	write.table(results, outPath, quote=F, row.names=F, col.names=F, append=shouldAppend, sep="\t")
 }
 
@@ -56,17 +54,6 @@ doPredict <- function(fm, model, outPath) {
 	#remove normal positions
 	results = allResults[predClass != "n", ]
 	
-	#DEBUG
-	print("head(fm)")
-	print(head(fm, n = 1))
-	print("head(fm$chrom)")
-	print(head(fm$chrom, n = 1))
-	print("head(allResults)")
-	print(head(allResults, n = 1))
-	print("head(results)")
-	print(head(results, n = 1))
-	#END DEBUG
-
 	saveResults(results, outPath)
 }
 
@@ -80,31 +67,6 @@ model = readRDS(modelPath)
 
 windowStart = 0
 windowSize = 100000
-#nLines = countLines(fmPath)[1]
-#
-#resume = TRUE
-#if (resume && file.exists(outPath)) { 
-#
-#	#try to figure out where left of in writing results
-#	print(paste("Counting lines in...", outPath))
-#	nLinesWritten = countLines(outPath)
-#
-#	if (nLinesWritten > nLines) {
-#		print(paste("error: results have more lines than fm", nLines))
-#	} else if (nLinesWritten == nLines) { 
-#		print("already done!")
-#		quit()
-#	}
-#
-#	if (nLinesWritten %% windowSize == 0) {
-#		print(paste("continuing from", nLinesWritten))
-#		windowStart = nLinesWritten
-#	} else {
-#		print(paste("starting over from 0, discarding", nLinesWritten))
-#	}
-#
-#}
-
 shouldAppend = FALSE
 
 #Read in labeled feature matrix in WINDOWS
@@ -116,10 +78,7 @@ while(length(line <- readLines(input, n=windowSize, warn=FALSE)) > 0) {
 	fm <- setDF(colsplit(line, "\t", names=getHeader()))
 	
 	print(paste("Read", nrow(fm), "lines."))
-	print(head(fm[, 1:2]))
-	print(tail(fm[, 1:2]))
-	print("**")
-
+	
 	#run rf model
 	print("Running predict...")
 	doPredict(fm, model, outPath)

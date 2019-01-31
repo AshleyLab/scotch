@@ -2,7 +2,9 @@
 
 fmPath="$1"
 outPath="$2"
-modelPath="${SCOTCH}/train-22-dOne-N/models/model.epsilon.N1.iii.3.RData"
+modelPath="$3"
 
-predictR="${SCOTCH}/scripts/final/predict.R"
+scotchDir=$(dirname "$0")
+
+predictR="${scotchDir}/predict.R"
 zcat "$fmPath" | Rscript "$predictR" "$modelPath" "$outPath"

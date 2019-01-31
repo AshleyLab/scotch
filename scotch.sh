@@ -8,6 +8,10 @@ bam="$3"
 id="$4"
 fastaRef="$5"
 gatkJAR="$6"
+rfsDir="$7"
+
+#train-22-dOne-N/models/model.epsilon.N1.iii.3.RData
+modelPath="wgs-model.RData"
 
 #Constants
 mem="4"
@@ -91,7 +95,7 @@ do
 	
 	script="${doDir}/compile.${chrom}.sh"
 	echo \#!/bin/bash > "$script" 
-	echo bash "$compileFeatures" "$featuresDir" "$bed" "$chrom" "$tmpDir" "$outMatrix"  >> "$script"
+	echo bash "$compileFeatures" "$featuresDir" "$bed" "$chrom" "$tmpDir" "$outMatrix" "$rfsDir" >> "$script"
 
 	##4. Run Random Forest
 	doPredict="${scotchDir}/doPredict.sh"
@@ -99,7 +103,7 @@ do
 
 	script="${doDir}/predict.${chrom}.sh"
 	echo \#!/bin/bash > "$script" 
-	echo bash "$doPredict" "${outMatrix}.gz" "$outResults" >> "$script" 
+	echo bash "$doPredict" "${outMatrix}.gz" "$outResults" "$modelPath" >> "$script" 
 	
 	##5. Convert to VCF
 done
