@@ -6,11 +6,14 @@ workingDir="$1"
 bedsDir="$2"
 bam="$3"
 id="$4"
+fastaRef="$5"
+gatkJAR="$6"
 
-#Constants (should be read from a config file?)
+#Constants
 mem="4"
-fastaRef="/share/PI/euan/apps/bcbio/genomes/Hsapiens/GRCh37/seq/GRCh37.fa"
-gatkJAR="${SCOTCH}/aux/gatk/GenomeAnalysisTK-3.8-1-0-gf15c1c3ef/GenomeAnalysisTK.jar"
+
+#directory with Scotch scripts
+scotchDir=$(dirname "$0")
 
 doDir="${workingDir}/do/"
 mkdir "$doDir"
@@ -26,7 +29,7 @@ mkdir "$resultsDir"
 #0. Rmdup
 rmdupToDo="${doDir}/rmdup.sh"
 rmdupBam="${bamsParentDir}/${id}.rmdup.bam"
-rmdupScript="${SCOTCH}/final/prepareBam-rmdup.sh"
+rmdupScript="${scotchDir}/prepareBam-rmdup.sh"
 
 echo \#!/bin/bash > "$rmdupToDo"
 echo sh "$rmdupScript" "$bam" "$rmdupBam" >> "$rmdupToDo"
@@ -42,7 +45,7 @@ do
 	##1. BAM Preparation
 	#A. Split by chromosome
 	splitBam="${bamsDir}/${chrom}.bam"
-	splitScript="${SCOTCH}/final/prepareBam-split.sh"
+	splitScript="${scotchDir}/prepareBam-split.sh"
 
 	script="${doDir}/split.${chrom}.sh"	
 	echo \#!/bin/bash > "$script"
@@ -50,8 +53,8 @@ do
 
 	#B. Make a version of each split bam where soft-clipped bases are normal
 	#This must happen AFTER $splitBam is created in split.${chrom}.sh
-	unclipSplitBam="${SCOTCH}/scripts/final/prepareBam-unclip.sh"
-	unclipScript="${bamsDir}/${chrom}.unclip.bam"
+	unclipSplitBam="${bamsDir}/${chrom}.unclip.bam"
+	unclipScript="${scotchDir}/prepareBam-unclip.sh"
 
 	script="${doDir}/unclip.${chrom}.sh"
 	echo \#!/bin/bash > "$script"
@@ -59,7 +62,7 @@ do
 
 	##2. Make Features
 	#A. Depth
-	getReadCount="${SCOTCH}/scripts/final/getFeatures-getReadCount.sh"
+	getReadCount="${scotchDir}/getFeatures-getReadCount.sh"
 	outFeature="${featuresDir}/depth.feat"
 
 	script="${doDir}/gd.${chrom}.sh"
@@ -67,7 +70,7 @@ do
 	echo sh "$getReadCount" "$splitBam" "$bed" "$fastaRef" "$gatkJAR" "$tmpDir" "$mem" "$outFeature" >> "$script"
 
 	#B. nReads
-	getReadCount="${SCOTCH}/scripts/final/getFeatures-getReadCount.sh"
+	getReadCount="${scotchDir}/getFeatures-getReadCount.sh"
 	outFeature="${featuresDir}/nReads.feat"
 	
 	script="${doDir}/gn.${chrom}.sh"
@@ -75,7 +78,7 @@ do
 	echo sh "$getReadCount" "$unclipSplitBam" "$bed" "$fastaRef" "$gatkJAR" "$tmpDir" "$mem" "$outFeature" >> "$script"
 
 	#C. Read Features
-	getReadFeatures="${SCOTCH}/scripts/final/getFeatures-getReadFeatures.sh"
+	getReadFeatures="${scotchDir}/getFeatures-getReadFeatures.sh"
 	outFeature="${featuresDir}/read.feats"
 		
 	script="${doDir}/gr.${chrom}.sh"
@@ -83,7 +86,7 @@ do
 	echo sh "$getReadFeatures" "$splitBam" "$bed" "$outFeature" >> "$script"
 		
 	##3. Compile Features
-	compileFeatures="${SCOTCH}/scripts/final/compileFeatures.sh"
+	compileFeatures="${scotchDir}/compileFeatures.sh"
 	outMatrix="${featuresDir}/matrix.${chrom}.txt"
 	
 	script="${doDir}/compile.${chrom}.sh"
@@ -91,7 +94,7 @@ do
 	echo bash "$compileFeatures" "$featuresDir" "$bed" "$chrom" "$tmpDir" "$outMatrix"  >> "$script"
 
 	##4. Run Random Forest
-	doPredict="${SCOTCH}/scripts/final/doPredict.sh"
+	doPredict="${scotchDir}/doPredict.sh"
 	outResults="${resultsDir}/results.${chrom}.txt"
 
 	script="${doDir}/predict.${chrom}.sh"
