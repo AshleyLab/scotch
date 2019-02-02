@@ -23,7 +23,7 @@ library(data.table)
 library(e1071)
 library(plyr)
 library(randomForest)
-library(reshape) 
+library(reshape) #new
 library(R.utils)
 library(zoo)
 
@@ -34,10 +34,10 @@ getHeader <- function() {
 
 }
 
-#Save results from prediction
+#Save reasults from prediction
 saveResults <- function(results, outPath) {
 
-	write.table(format(results, digits=3), outPath, quote=F, row.names=F, col.names=F, append=shouldAppend, sep="\t")
+	write.table(results, outPath, quote=F, row.names=F, col.names=F, append=shouldAppend, sep="\t")
 }
 
 #make predictions
@@ -49,8 +49,8 @@ doPredict <- function(fm, model, outPath) {
 	predClass = colnames(probs)[max.col(probs, ties.method = "first")]
 
 	#combine probabilites (rounding to 3 places), into comma-delimited string
-	#probsString = do.call(paste, c(round(as.data.frame(probs), digits=3), sep=","))
-	allResults = data.frame(fm$chrom, fm$pos, predClass, probs) #probsString)
+	probsString = do.call(paste, c(round(as.data.frame(probs), digits=3), sep=","))
+	allResults = data.frame(fm$chrom, fm$pos, predClass, probsString)
 
 	#remove normal positions
 	results = allResults[predClass != "n", ]
@@ -67,7 +67,7 @@ outPath = args[2]
 model = readRDS(modelPath)
 
 windowStart = 0
-windowSize = 300000
+windowSize = 100000
 shouldAppend = FALSE
 
 #Read in labeled feature matrix in WINDOWS

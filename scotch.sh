@@ -10,14 +10,13 @@ fastaRef="$5"
 gatkJAR="$6"
 rfsDir="$7"
 
-#train-22-dOne-N/models/model.epsilon.N1.iii.3.RData
-modelPath="wgs-model.RData"
-
 #Constants
 mem="4"
 
 #directory with Scotch scripts
 scotchDir=$(dirname "$0")
+#train-22-dOne-N/models/model.epsilon.N1.iii.3.RData
+modelPath="${scotchDir}/wgs-model.RData" 
 
 doDir="${workingDir}/do/"
 mkdir "$doDir"
@@ -104,6 +103,4 @@ do
 	script="${doDir}/predict.${chrom}.sh"
 	echo \#!/bin/bash > "$script" 
 	echo bash "$doPredict" "${outMatrix}.gz" "$outResults" "$modelPath" >> "$script" 
-	
-	##5. Convert to VCF
 done
