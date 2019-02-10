@@ -12,21 +12,23 @@ Usage ./scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir
 More at https://github.com/AshleyLab/scotch.
 ```
 
-Running ./scotch.sh creates a directory, ${workingDir}/do/ and populates it with executables to run to execute Scotch's pipeline. 
+Running `./scotch.sh` creates a directory, `${workingDir}/do/` and populates it with executables that perform Scotch's pipeline. 
 
 ```
-			./scotch.sh			X
+
+			./scotch.sh			
+
 --------------------------------------------------------
 1. BAM preparation	   
-                           rmdup.sh
-		      split.${c}.sh
-		     unclip.${c}.sh
+|                          rmdup.sh
+|		      split.${c}.sh   <-- for each chrom
+V		     unclip.${c}.sh
 --------------------------------------------------------
 2. Calculate features
-              gd.${c}.sh gn.${c}.sh gr.${c}.sh
+->             gd.${c}.sh gn.${c}.sh gr.${c}.sh
 --------------------------------------------------------
 3. Compile features 
-                    compile.${c}.sh
+->                   compile.${c}.sh
 --------------------------------------------------------
 4. Predict
-                    predict.${c}.sh 
+->                   predict.${c}.sh 
