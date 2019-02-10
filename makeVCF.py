@@ -1,30 +1,32 @@
 #!/usr/bin/python
 
-import csv, os, pysam
+import csv, os, pysam, sys
 variantsPath = sys.argv[1]
 fastaPath = sys.argv[2]
-outPath = sys.argv[3]
 
 #print header
-def printHeader(): 
-	h = "##fileformat=VCFv4.1"
-	"""
-	##fileformat=VCFv4.1
-	##phasing=none
-    ##INDIVIDUAL=TRUTH
-    ##SAMPLE=<ID=TRUTH,Individual="TRUTH",Description="bamsurgeon spike-in">
-    ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
-	##ALT=<ID=DEL_L, Description="Deletion Start"
-	##ALT=<ID=DEL_R, Description="Deletion Right">
-    ##ALT=<ID=INS,Description="Insertion">
-    ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-    #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSPIKEIN""")
+def writeHeader():
+
+	h = ["##fileformat=VCFv4.1"]
+	h.append("##phasing=none")
+	h.append("##ALT=<ID=DEL_L, Description=\"Deletion Start\">")
+	h.append("##ALT=<ID=DEL_R, Description=\"Deletion Right\">")
+	h.append("##ALT=<ID=INS,Description=\"Insertion\">")
+	h.append("##INFO=<ID=PROBS,Number=1,Type=String,Description=\"Class probabilites from random forest model\">")
+	h.append("##FORMAT=<ID=GT,Number=1, Type=String,Description=\"Genotype\">")
+	h.append("\t".join(["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SAMPLE"]))
+
+	for headerItem in h: 
+		print(headerItem)
 
 #process variants
 def processVariant(v):
 
-	[chrom, pos, predType, probs] = v
-	reference = fasta.fetch(chrom, int(pos) - 1, int(pos)).upper()
+	[chrom, p, predType, prob1, prob2, prob3, prob4, prob5] = v
+	pos = int(p)
+
+	probs = ",".join([prob1, prob2, prob3, prob4, prob5])
+	ref = fasta.fetch(chrom, pos - 1, pos).upper()
 
 	if predType == "ins":
 		alt = "<INS>"
@@ -35,20 +37,30 @@ def processVariant(v):
 	elif predType == "dOne": 
 	
 		#base at this pos is one deleted, shift back one
-		alternate = reference	
-		reference = fasta.fetch(chrom, int(pos) - 2, int(pos)).upper()
-		pos--
+		alt = ref
+		ref = fasta.fetch(chrom, int(pos) - 2, int(pos)).upper()
+		pos -= 1
 	else: 
-		print("ERROR: Variant has unexpected type {}".format(predType))
-
-
-	writer.writerow([chrom, start, ".", reference, alternate]) #more?
+		sys.stderr.write("ERROR: Variant has unexpected type {}".format(predType))
+		return
+	
+	ID     = "."
+	QUAL   = "100"
+	FILTER = "PASS"
+	INFO   = "PROBS=" + probs
+	FORMAT = "GT"
+	SAMPLE = "./."
+	#      "#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SAMPLE"
+	data = [chrom, pos, ID, ref, alt, QUAL, FILTER, INFO, FORMAT, SAMPLE]
+	print("\t".join(str(x) for x in data))
 
 #Execution starts here
 #Read in FASTA
 fasta = pysam.FastaFile(fastaPath)
 
+writeHeader()
+
 #Read in variants
 with open(variantsPath, "r") as v: 
 	for variant in csv.reader(v, delimiter="\t"):
-		processVariant(v)
+		processVariant(variant)

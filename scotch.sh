@@ -98,9 +98,10 @@ do
 
 	##4. Run Random Forest
 	doPredict="${scotchDir}/doPredict.sh"
-	outResults="${resultsDir}/results.${chrom}.txt"
+	outResults="${resultsDir}/results.${chrom}.scotch.tsv"
+	vcfResults="${resultsDir}/results.${chrom}.vcf"
 
 	script="${doDir}/predict.${chrom}.sh"
 	echo \#!/bin/bash > "$script" 
-	echo bash "$doPredict" "${outMatrix}.gz" "$outResults" "$modelPath" >> "$script" 
+	echo bash "$doPredict" "${outMatrix}.gz" "$outResults" "$modelPath" "$fastaRef" "$vcfResults" >> "$script" 
 done
