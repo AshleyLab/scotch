@@ -2,6 +2,22 @@
 #Prepare BAM for Scotch
 #Remove PCR duplicates, split by chromosome
 
+#check if should print just help message
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]
+then
+	echo "Usage ./scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]" 
+	echo -e "\tworkingDir\tabsolute path to directory where Scotch should put intermediate files and results"
+	echo -e "\tbedsDir   \tdirectory with .bed files listing the regions Scotch should examine"
+	echo -e "\tbam       \tBAM file for which Scotch should call indels"
+	echo -e "\tid        \ta name for this sample"
+	echo -e "\tfastaRef  \tFASTA reference for genome build"
+	echo -e "\tgatkJAR   \tGenome Analysis Toolkit JAR file"
+	echo -e "\trfsDir    \tdirectory with computed region features"
+	echo "More at https://github.com/AshleyLab/scotch."
+
+	exit 0
+fi
+
 workingDir="$1"
 bedsDir="$2"
 bam="$3"
