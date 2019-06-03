@@ -32,6 +32,7 @@ V		     unclip.${c}.sh
 --------------------------------------------------------
 4. Predict
 ->                   predict.${c}.sh 
+```
 
 ### Input
 Scotch accepts a Binary Alignment Mapping (BAM)21 file containing next-generation whole-genome sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
