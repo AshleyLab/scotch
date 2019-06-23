@@ -35,7 +35,7 @@ V		     unclip.${c}.sh
 ```
 
 ### Input
-Scotch accepts a Binary Alignment Mapping (BAM)21 file containing next-generation whole-genome sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
+Scotch accepts a Binary Alignment Mapping (BAM) file containing next-generation whole-genome sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
 
 ### Features
 Scotch’s model evaluates each position with respect to 39 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. Information on feature importance is available in the Supplementary Note (Supplementary Fig. 1, Supplementary Table 25). 
