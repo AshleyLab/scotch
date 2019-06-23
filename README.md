@@ -1,8 +1,9 @@
 # scotch
 
 ```
-Usage ./scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]
+Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]
         workingDir      absolute path to directory where Scotch should put intermediate files and results
+                        *run this command from within workingDir*
         bedsDir         directory with .bed files listing the regions Scotch should examine
         bam             BAM file for which Scotch should call indels
         id              a name for this sample

@@ -5,8 +5,9 @@
 #check if should print just help message
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]
 then
-	echo "Usage ./scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]" 
+	echo "Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]" 
 	echo -e "\tworkingDir\tabsolute path to directory where Scotch should put intermediate files and results"
+	echo -e "\t	     \t*run this command from within workingDir*"
 	echo -e "\tbedsDir   \tdirectory with .bed files listing the regions Scotch should examine"
 	echo -e "\tbam       \tBAM file for which Scotch should call indels"
 	echo -e "\tid        \ta name for this sample"
