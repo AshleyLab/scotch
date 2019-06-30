@@ -156,7 +156,6 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 	#3. Record base for all SC
 	def recordSCBase(queryPos, pos):
 		
-		#TODO: convert to upper? (or no because upper and lower rlly indicate different things and should lower consistency)
 		base = read.query_sequence[queryPos]
 		recordFeature(chrom, edgeSCPos, [pos, base], "scCons")
 		
