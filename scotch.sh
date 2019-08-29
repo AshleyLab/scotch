@@ -32,7 +32,6 @@ mem="4"
 
 #directory with Scotch scripts
 scotchDir=$(dirname "$0")
-#train-22-dOne-N/models/model.epsilon.N1.iii.3.RData
 modelPath="${scotchDir}/wgs-model.RData" 
 
 doDir="${workingDir}/do/"
