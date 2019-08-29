@@ -32,7 +32,8 @@ writer = csv.writer(o, delimiter="\t", lineterminator="\n")
 #	edgeDel - deletion
 #	scCons - SC consistency
 #	meanSCQual - baseQ of SC bases
-#	nHQual - proportion of reads with mapQ above threshold (13)
+#	nHQual - proportion of reads with mapQ above threshold (13) [really calc'ed from baseQ]
+#	scDist - (signed) mean distance along reads to SC (0 if base is SC)
 #keys are [chrom][pos][featureType]
 features = {}
 
@@ -77,7 +78,7 @@ def recordFeature(chrom, pos, value, featureType):
 		else: 
 			features[chrom][pos][featureType] += 1
 
-	else: #mapQ, baseQ, scQual
+	else: #mapQ, baseQ, scQual, (nHQual,) scDist
 		#append to array so can take mean later
 		if featureType not in features[chrom][pos]: 
 			features[chrom][pos][featureType] = [value]
@@ -118,11 +119,12 @@ def queryPosForEdgeSCPos(scOnLeft, edgeSCPos, read):
 	else: 
 		#subtract 1 since need last non SC base
 		boundaryPos -= 1
-
+	
 	try:
 		boundaryQueryPos = [q for q in aligned if q[1] == boundaryPos][0][0]
 	except:
-		print("Warning: Could not find SC query position for read: {}".format(read.tostring()))
+		print("Could not find SC query position for read: {}".format(read.tostring()))
+		print("Continuing")
 		return None
 
 	#shift back to find query pos for edgSCPos
@@ -140,7 +142,22 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 	for pos in range(oStart, oEnd):
 		recordFeature(chrom, pos, None, "allSC")
 	
-	
+	#1.5 for scDist
+	#for positions that are not SC, record distance to SC
+	#for positions that are SC, record 0
+	rStart = read.reference_start + 1
+	rEnd = rStart + read.query_length
+	for pos in range(rStart, rEnd):
+		if pos < oStart:
+			#before SC
+			distance = oStart - pos
+		elif pos >= oEnd:
+			#after SC
+			distance = oEnd - pos
+		else: 
+			distance = 0
+		recordFeature(chrom, pos, distance, "scDist")
+
 	#2. Record inner edge of SC 
 	scOnLeft = i == 0
 
@@ -156,6 +173,7 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 	#3. Record base for all SC
 	def recordSCBase(queryPos, pos):
 		
+		#TODO: convert to upper? (or no because upper and lower rlly indicate different things and should lower consistency)
 		base = read.query_sequence[queryPos]
 		recordFeature(chrom, edgeSCPos, [pos, base], "scCons")
 		
@@ -232,7 +250,7 @@ def processCIGAR(chrom, read):
 			4 : recordSoftClipping
 
 		}[oCode](i, chrom, oStart, oEnd, read)
-		#pass read just for recordSoftClipping so can record SC bases
+		#pass read just for recordSC so can record SC bases
 
 def processQualities(chrom, read):
 
@@ -263,6 +281,9 @@ def getSCCons(f, pos, nullValue):
 
 	bases = f["scCons"]
 
+	print("calcing SCcons for " + str(pos))
+	print(bases)
+
 	consistencies = []
 	for scPos in bases: 
 		scBaseCounts = bases[scPos].values()
@@ -273,11 +294,13 @@ def getSCCons(f, pos, nullValue):
 		consistency = max(scBaseCounts) / sum(scBaseCounts) #ratio of times most common element appears
 		consistencies.append(consistency)
 	
-	return numpy.mean(consistencies)
+	meanC = numpy.mean(consistencies)
+	print("result: " + str(meanC))
+	return meanC
 
 def getFeatures(chrom, pos, nullValue):
 
-	nFeatures = 9
+	nFeatures = 10
 	if chrom not in features or pos not in features[chrom]: 
 		data = [nullValue] * nFeatures
 	else: 
@@ -305,6 +328,15 @@ def getFeatures(chrom, pos, nullValue):
 		else: 
 			meanSCQual = numpy.mean(f["scQual"])
 
+		#get mean scDist
+		if "scDist" not in f or not f["scDist"]:
+			meanSCDist = 1000 
+			#nullValue is low, which would provide strong signal that close to SC
+			#when really we don't know
+			#so don't use nullValue
+		else: 
+			meanSCDist = numpy.mean(f["scDist"])
+
 		data = [
 			meanMapQ,
 			meanBaseQ,
@@ -314,7 +346,8 @@ def getFeatures(chrom, pos, nullValue):
 			f["edgeDel"] if "edgeDel" in f else nullValue,
 			scCons,
 			meanSCQual,
-			nHQual
+			nHQual,
+			meanSCDist
 		]
 
 	return data
