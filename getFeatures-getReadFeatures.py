@@ -33,7 +33,7 @@ writer = csv.writer(o, delimiter="\t", lineterminator="\n")
 #	scCons - SC consistency
 #	meanSCQual - baseQ of SC bases
 #	nHQual - proportion of reads with mapQ above threshold (13) [really calc'ed from baseQ]
-#	scDist - (signed) mean distance along reads to SC (0 if base is SC)
+#	scDist - signed mean distance along reads to SC (0 if base is SC)
 #keys are [chrom][pos][featureType]
 features = {}
 
@@ -78,7 +78,7 @@ def recordFeature(chrom, pos, value, featureType):
 		else: 
 			features[chrom][pos][featureType] += 1
 
-	else: #mapQ, baseQ, scQual, (nHQual,) scDist
+	else: #mapQ, baseQ, scQual, nHQual, scDist
 		#append to array so can take mean later
 		if featureType not in features[chrom][pos]: 
 			features[chrom][pos][featureType] = [value]
@@ -123,8 +123,7 @@ def queryPosForEdgeSCPos(scOnLeft, edgeSCPos, read):
 	try:
 		boundaryQueryPos = [q for q in aligned if q[1] == boundaryPos][0][0]
 	except:
-		print("Could not find SC query position for read: {}".format(read.tostring()))
-		print("Continuing")
+		print("Warning: Could not find SC query position for read: {}".format(read.tostring()))
 		return None
 
 	#shift back to find query pos for edgSCPos
@@ -142,8 +141,8 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 	for pos in range(oStart, oEnd):
 		recordFeature(chrom, pos, None, "allSC")
 	
-	#1.5 for scDist
-	#for positions that are not SC, record distance to SC
+	#2. Record distance to SC
+	#for positions that are not SC, record signed distance to SC
 	#for positions that are SC, record 0
 	rStart = read.reference_start + 1
 	rEnd = rStart + read.query_length
@@ -158,7 +157,7 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 			distance = 0
 		recordFeature(chrom, pos, distance, "scDist")
 
-	#2. Record inner edge of SC 
+	#3. Record inner edge of SC 
 	scOnLeft = i == 0
 
 	if scOnLeft:
@@ -172,8 +171,6 @@ def recordSoftClipping(i, chrom, oStart, oEnd, read):
 
 	#3. Record base for all SC
 	def recordSCBase(queryPos, pos):
-		
-		#TODO: convert to upper? (or no because upper and lower rlly indicate different things and should lower consistency)
 		base = read.query_sequence[queryPos]
 		recordFeature(chrom, edgeSCPos, [pos, base], "scCons")
 		
@@ -250,7 +247,7 @@ def processCIGAR(chrom, read):
 			4 : recordSoftClipping
 
 		}[oCode](i, chrom, oStart, oEnd, read)
-		#pass read just for recordSC so can record SC bases
+		#pass read just for recordSoftClipping so can record SC bases
 
 def processQualities(chrom, read):
 
@@ -280,10 +277,6 @@ def getSCCons(f, pos, nullValue):
 		return 1.0
 
 	bases = f["scCons"]
-
-	print("calcing SCcons for " + str(pos))
-	print(bases)
-
 	consistencies = []
 	for scPos in bases: 
 		scBaseCounts = bases[scPos].values()
@@ -294,9 +287,7 @@ def getSCCons(f, pos, nullValue):
 		consistency = max(scBaseCounts) / sum(scBaseCounts) #ratio of times most common element appears
 		consistencies.append(consistency)
 	
-	meanC = numpy.mean(consistencies)
-	print("result: " + str(meanC))
-	return meanC
+	return numpy.mean(consistencies)
 
 def getFeatures(chrom, pos, nullValue):
 
@@ -332,8 +323,7 @@ def getFeatures(chrom, pos, nullValue):
 		if "scDist" not in f or not f["scDist"]:
 			meanSCDist = 1000 
 			#nullValue is low, which would provide strong signal that close to SC
-			#when really we don't know
-			#so don't use nullValue
+			#so when we don't know, use a high placeholder flag
 		else: 
 			meanSCDist = numpy.mean(f["scDist"])
 
@@ -355,7 +345,7 @@ def getFeatures(chrom, pos, nullValue):
 #Iterate over BAM file
 #Populating features with values to write out
 windowSize = 10000 #If bottleneck is I/O, using bigger windowSize should make faster
-readSize = 300 #!!! <-- ask user for this?
+windowBuffer = 300
 for [chrom, start, end] in regions:
 
 	windowStart = start
@@ -371,7 +361,7 @@ for [chrom, start, end] in regions:
 		#Calculating
 		#Extract reads from this region 
 		#Store the results in features
-		for read in bamData.fetch(chrom, max(0, windowStart - readSize), windowEnd + readSize):
+		for read in bamData.fetch(chrom, max(0, windowStart - windowBuffer), windowEnd + windowBuffer):
 			processCIGAR(chrom, read)
 			processQualities(chrom, read)
 
