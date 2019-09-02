@@ -1,6 +1,13 @@
 #!/usr/bin/python
 #Processes reads, parsing CIGAR strings and extracting qualities
-import csv, numpy, os, pysam, re, sys
+#and writes gz output
+import csv
+import gzip
+import os
+import numpy
+import pysam
+import re
+import sys
 
 bam = sys.argv[1]
 bed = sys.argv[2]
@@ -16,10 +23,10 @@ with open(bed, "r") as b:
 		#add 1 since BED is 0-based
 		regions.append([region[0], int(region[1]) + 1, int(region[2]) + 1]) 
 
-#Prepare to write TSV
+#Prepare to write TSV GZ
 outFeatureRaw = outFeature + ".raw" #when finish, rename to remove .raw
-o = open(outFeatureRaw, "w+")
-writer = csv.writer(o, delimiter="\t", lineterminator="\n")
+o = gzip.open(outFeatureRaw, "wt", newline="")
+writer = csv.writer(o, delimiter="\t")
 
 #where we'll store info about six features
 #two qualities

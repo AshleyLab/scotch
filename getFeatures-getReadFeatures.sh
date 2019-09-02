@@ -8,5 +8,3 @@ outFeature="$3"
 scotchDir=$(dirname "$0")
 s="${scotchDir}/getFeatures-getReadFeatures.py"
 python "$s" "$bam" "$bed" "$outFeature"
-
-gzip "$outFeature"

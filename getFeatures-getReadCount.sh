@@ -1,6 +1,7 @@
 #!/bin/bash
 #Calculates depth of coverage (includes or excludes SC bases 
 #depending on whether called with unclipped bam or not from getFeatures.sh)
+#and writes, gzipped, to outFeature
 
 bam="$1"
 bed="$2"
@@ -29,7 +30,7 @@ grep -vi warn	`#0` | \
 tail -n +2	`#1` | \
 cut -f-2 	`#2` | \
 sed "s|:|\t|"   `#3` | \
-gzip > "${outFeature}.gz"
+gzip > "$outFeature"
 
 #       1. Use tail to remove header
 #       2. Use cut to extract chrom, pos, value columns
