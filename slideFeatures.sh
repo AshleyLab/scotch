@@ -10,4 +10,4 @@ delimiter="\t"
 
 fillLine=$(yes "$useToFill" | head -n "$nToSlide" | tr '\n' "$delimiter" | sed "s|$delimiter\$||")
 
-paste "$fm" <(cut -f"$toSlide" "$fm" | tail -n +2; echo "$fillLine") | gzip > "${out}.gz"
+paste "$fm" <(cut -f"$toSlide" "$fm" | tail -n +2; echo "$fillLine") | gzip > "$out"

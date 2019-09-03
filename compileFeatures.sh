@@ -2,10 +2,9 @@
 
 featuresDir="$1"
 bed="$2"
-chrom="$3"
-tmpDir="$4"
-outMatrix="$5"
-rfs="$6"
+tmpDir="$3"
+outMatrix="$4"
+rfs="$5"
 
 #directory with Scotch scripts
 scotchDir=$(dirname "$0")

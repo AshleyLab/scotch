@@ -30,7 +30,7 @@ library(zoo)
 getHeader <- function() { 
 
 	#mapQDelta,baseQDelta ; depthDelta,nReadsDelta switched
-	return(c("chrom","pos","depthNorm","nReadsNorm","mapQ","baseQ","allSCRatio","edgeSCRatio","insRatio","edgeDelRatio","scCons","scQual","nHQual","depthDeltaNorm","nReadsDeltaNorm","mapQDeltaNorm","baseQDeltaNorm","allSCDeltaNorm","edgeSCDeltaNorm","insDeltaNorm","edgeDelDeltaNorm","scConsDelta","scQualDelta","nistHC","repMasker","segDups","LCR","gc50","gc1000","map100","uniq35","depthDeltaNorm2","nReadsDeltaNorm2","mapQDeltaNorm2","baseQDeltaNorm2","allSCDeltaNorm2","edgeSCDeltaNorm2","insDeltaNorm2","edgeDelDeltaNorm2","scConsDelta2","scQualDelta2"))
+	return(c("chrom","pos","depthNorm","nReadsNorm","mapQ","baseQ","allSCRatio","edgeSCRatio","insRatio","edgeDelRatio","scCons","scQual","nHQual","scDist","depthDeltaNorm","nReadsDeltaNorm","mapQDeltaNorm","baseQDeltaNorm","allSCDeltaNorm","edgeSCDeltaNorm","insDeltaNorm","edgeDelDeltaNorm","scConsDelta","scQualDelta","nistHC","repMasker","segDups","LCR","gc50","gc1000","map100","uniq35","depthDeltaNorm2","nReadsDeltaNorm2","mapQDeltaNorm2","baseQDeltaNorm2","allSCDeltaNorm2","edgeSCDeltaNorm2","insDeltaNorm2","edgeDelDeltaNorm2","scConsDelta2","scQualDelta2"))
 
 }
 

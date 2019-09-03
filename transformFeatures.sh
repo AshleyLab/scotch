@@ -40,7 +40,8 @@ nReadsNorm  = $4 / meanNReads;
 
 #	#$5: mapQ, $6: baseQ -- stay unchanged
 #	#$7: allSC, $8: edgeSC, $9: ins, $10: edgeDel -- record as fractions against nReads
-#	#$11: scQual, $12: scCons
+#	#$11: scCons, $12: scQual
+#	#$13: scDist
 
 ##Compute delta features
 depthDelta = $3 - lastDepth; 
@@ -108,7 +109,7 @@ if (meanNReadsPair != 0) {
 
 ##Print tab-delimited
 OFS="\t"; 
-print $1,$2,depthNorm,nReadsNorm,$5,$6,$7,$8,$9,$10,$11,$12,$13,depthDelta,nReadsDelta,mapQDelta,baseQDelta,allSCDelta,edgeSCDelta,insDelta,edgeDelDelta,scConsDelta,scQualDelta;
+print $1,$2,depthNorm,nReadsNorm,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,depthDelta,nReadsDelta,mapQDelta,baseQDelta,allSCDelta,edgeSCDelta,insDelta,edgeDelDelta,scConsDelta,scQualDelta;
 
 }'
 

@@ -8,6 +8,7 @@ import typing
 
 # constants
 CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
+MODEL_NAME = "scotch-r1-wgs-model.RData"
 
 # paths used by multiple stages
 def get_bams_dir(project_dir: Path, for_chrom: str = None) -> Path:
@@ -68,7 +69,7 @@ def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
 	return beds_dir / f"{for_chrom}.bed"
 
 # rfs convenience func
-def get_rsf_file(rfs_dir: Path, for_chrom: str) -> Path:
+def get_rfs_file(rfs_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
 	return rfs_dir / f"{for_chrom}.rfs"
 
@@ -368,36 +369,40 @@ def compile_features(args):
 	assert read_features.is_file(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
 
 	# get path to feature matrix
-	features_dir: Path = get_features_dir(project_dir)
+	features_dir: Path = get_features_dir(project_dir, chrom)
 	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
+	assert not feature_matrix.exists(), f"compile-features --chrom={chrom} writes to {feature_matrix} but that already exists, please delete or move"
 
 	# run pipeline script
 	script_name: str = "compileFeatures.sh"
-	run_script(script_name, features_dir, bed_file, chrom, tmp_dir, feature_matrix, rfs_file)
+	run_script(script_name, features_dir, bed_file, tmp_dir, feature_matrix, rfs_file)
 
 def predict(args):
 	# args we've already validated
 	chrom: str = args.chrom
 	project_dir: Path = Path(args.project_dir)
-	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
+
+	model_path: Path = Path(__file__).parent / MODEL_NAME
 
 	# validate args specific to this stage: model_path, fasta_ref
-	model_path: Path = None
-	fasta_ref: Path = None
-	
+	assert args.fasta_ref, "fasta_ref must be specified for predict"
+	fasta_ref: Path = Path(args.fasta_ref)
+	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
+
 	# validate input from previous stage: compile-features
-	feature_matrix: Path = get_feature_matrix(project_dir)
+	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
 	assert feature_matrix.is_file(), "predict --chrom=chrom needs access to {feature_matrix}: try running compile-features --chrom={chrom}"
 
 	# get output files for this stage
+	get_results_dir(project_dir).mkdir(exist_ok=True)
 	scotch_tsv_results: Path = get_scotch_tsv_results(project_dir, chrom)
 	assert not scotch_tsv_results.exists(), f"predict --chrom={chrom} writes to {scotch_tsv_results} but that already exists, please delete or move"
 	vcf_results: Path = get_vcf_results(project_dir, chrom)
-	assert not vcf_results.exist(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
+	assert not vcf_results.exists(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
 
 	# run pipeline script
 	script_name: str = "doPredict.sh"
-	run_script(script_name, feature_matrix, scotch_tsv_results, vcf_results, model_path, fasta_ref, vcf_results)
+	run_script(script_name, feature_matrix, scotch_tsv_results, model_path, fasta_ref, vcf_results)
 
 # map keywords to functions that execute pipeline stages
 COMMANDS = {
@@ -423,6 +428,7 @@ if __name__ == "__main__":
 	parser.add_argument("--fasta_ref", type=str, help="Absolute path to genome build FASTA reference, required for unclip-bam, get-features-depth, get-features-nReads, compile-features")
 	parser.add_argument("--gatk_jar", type=str, help="Absolute path to GATK JAR file, required for unclip-bam, get-features-depth, get-features-nReads")
 	parser.add_argument("--gatk_mem", type=int, default=5, help="Amount of memory, in GB, to run GATK with (default: 5)")
+	parser.add_argument("--rfs_dir", type=str, help="Absolute path to direcotry where one region feature file for each chrom [1-22, X, Y] is stored as ${chrom}.rfs, required for compile-features")
 
 	args = parser.parse_args()
 
@@ -436,9 +442,11 @@ if __name__ == "__main__":
 		chrom: str = args.chrom
 		assert chrom in CHROMS, "chrom must be specified for stages other than rmdup-bam"
 
+	if command not in ["rmdup-bam", "predict", "check-status"]:
 		# validate beds_dir
+		assert args.beds_dir, "beds_dir must be specified for stages other than rmdup-bam and predict"
 		beds_dir: Path = Path(args.beds_dir)
-		assert beds_dir.is_dir(), "beds_dir must be specified for stages other than rmdup-bam, and must be a directory that exists"
+		assert beds_dir.is_dir(), "beds_dir must be a directory that exists"
 		bed_file: Path = get_bed_file(beds_dir, chrom)
 		assert Path(bed_file).is_file(), "beds_dir must contain a bed file for the specified chrom" 
 		
