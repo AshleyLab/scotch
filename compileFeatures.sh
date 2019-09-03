@@ -5,7 +5,7 @@ bed="$2"
 chrom="$3"
 tmpDir="$4"
 outMatrix="$5"
-rfsDir="$6"
+rfs="$6"
 
 #directory with Scotch scripts
 scotchDir=$(dirname "$0")
@@ -21,8 +21,6 @@ transform="${scotchDir}/transformFeatures.sh"
 
 #3. Add RFs
 add="${scotchDir}/addRegionFeatures.sh"
-rfs="${rfsDir}/${chrom}.rfs"
-
 bash "$combine" "$featuresDir" "$featureSet" | "$transform" "$meanDepth" "$meanNReads" | "$add" "$bed" "$rfs" "$tmpDir" > "${outMatrix}.no_slide"
 
 #4. Slide

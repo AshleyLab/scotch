@@ -66,7 +66,11 @@ def get_vcf_results(project_dir: Path, for_chrom: str) -> Path:
 def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}" 
 	return beds_dir / f"{for_chrom}.bed"
-#
+
+# rfs convenience func
+def get_rsf_file(rfs_dir: Path, for_chrom: str) -> Path:
+	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
+	return rfs_dir / f"{for_chrom}.rfs"
 
 # check bam is valid
 def quickcheck_bam(bam: Path) -> bool:
@@ -340,30 +344,36 @@ def compile_features(args):
 	project_dir: Path = Path(args.project_dir)
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
-	# validate args specific to this stage: tmp_dir, rfs_dir
-	tmp_dir: Path = None
-	rfs_dir: Path = None
-	# TODO
+	# validate args specific to this stage: rfs_dir
+	assert args.rfs_dir, "compile-features needs to be a supplied a directory of region feature files"
+	rfs_dir: Path = Path(args.rfs_dir)
+	assert rfs_dir.is_dir(), "rfs_dir must be a directory that exists"
+	rfs_file: Path = get_rfs_file(rfs_dir, chrom)
+	assert rfs_file.is_file(), "rfs_dir must contain a file ${chrom}.rfs, where chrom is the specified chrom"
+
+	# prepare tmp dir
+	tmp_dir: Path = get_tmp_dir(project_dir)
+	tmp_dir.mkdir(exist_ok=True)	
 
 	# validate input from previous stage: get-features-depth
-	depth_feature: Path = get_depth_feature(project_dir, chrom)
+	depth_feature: Path = get_depth_feature_gz(project_dir, chrom)
 	assert depth_feature.is_file(), f"compile-features --chrom={chrom} needs access to {depth_feature}: try running get-features-depth --chrom={chrom}"
 
 	# validate input from previous stage: get-features-nReads
-	nReads_feature: Path = get_depth_feature(project_dir, chrom)
-	assert depth_feature.is_file(), f"compile-features --chrom={chrom} needs access to {nReads_features}: try running get-features-nReads --chrom={chrom}"
+	nReads_feature: Path = get_nReads_feature_gz(project_dir, chrom)
+	assert nReads_feature.is_file(), f"compile-features --chrom={chrom} needs access to {nReads_feature}: try running get-features-nReads --chrom={chrom}"
 
 	# validate input from previous stage: getfeatures-read
-	read_features: Path = get_read_features(project_dir, chrom)
-	assert not read_features.exists(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
+	read_features: Path = get_read_features_gz(project_dir, chrom)
+	assert read_features.is_file(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
 
 	# get path to feature matrix
-	feature_matrix: Path = get_feature_matrix(project_dir, chrom)
-	features_dir: Path = get_features_dir(proejct_dir, chrom)
+	features_dir: Path = get_features_dir(project_dir)
+	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
 
 	# run pipeline script
 	script_name: str = "compileFeatures.sh"
-	run_script(script_name, features_dir, bed_file, chrom, tmp_dir, feature_matrix, rfs_dir)
+	run_script(script_name, features_dir, bed_file, chrom, tmp_dir, feature_matrix, rfs_file)
 
 def predict(args):
 	# args we've already validated
