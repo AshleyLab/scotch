@@ -11,7 +11,6 @@ tmpDir="$5"
 mem="$6"
 outFeature="$7"
 
-#depthDoc="${outFeature}.doc"
 log="${outFeature}.log"
 
 #Use GATK to calculate depth across portion of BAM in BED

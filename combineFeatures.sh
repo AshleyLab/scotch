@@ -2,7 +2,6 @@
 #Combine .feat{,s} files from "$featuresDir"
 
 featuresDir="$1"
-featureSet="$2"
 
 #read.feats should be: mapQ, baseQ, ...
 paste <(zcat "${featuresDir}/depth.feat.gz") \

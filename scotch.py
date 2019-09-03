@@ -27,6 +27,9 @@ def get_features_dir(project_dir: Path, for_chrom: str = None) -> Path:
 def get_results_dir(project_dir: Path) -> Path:
 	return project_dir / "results/"
 
+def get_tmp_dir(project_dir: Path) -> Path:
+	return project_dir / "tmp/"
+
 def get_rmdup_bam(project_dir: Path) -> Path:
 	return get_bams_dir(project_dir) / "rmdup.bam"
 
@@ -73,10 +76,10 @@ def quickcheck_bam(bam: Path) -> bool:
 def run_script(script_name, *args):
 	scotch_dir: Path = Path(__file__).parent
 	script: Path = scotch_dir / script_name
-	print(f"running {script} with {args}")
-	if script_name.endswith(".sh"):
-		print("calling")
-		subprocess.call([script] + list(args))
+	str_args = [str(a) for a in args]
+	print(f"running {script} with {str_args}")
+
+	subprocess.call([script] + str_args)
 
 # prints graphical report of status
 def check_status(args) -> None: 
@@ -207,12 +210,21 @@ def unclip_bam(args):
 	project_dir: Path = Path(args.project_dir)
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
-	# validate args specific to this stage: fasta_ref, gatk_jar, tmp_dir, mem
-	fasta_ref: Path = None
-	gatk_jar: Path = None
-	tmp_dir: Path = None
-	mem: int = None
-	# TODO
+	# validate args specific to this stage: fasta_ref, gatk_jar, gatk_mem
+	assert args.fasta_ref, "fasta_ref must be specified for unclip-bam stage"
+	fasta_ref: Path = Path(args.fasta_ref)
+	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
+
+	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
+	gatk_jar: Path = Path(args.gatk_jar)
+	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+
+	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
+	gatk_mem: int = int(args.gatk_mem)
+	
+	# prepare tmp dir
+	tmp_dir: Path = get_tmp_dir(project_dir)
+	tmp_dir.mkdir(exist_ok=True)
 
 	# validate results of last stage: split-bam
 	split_bam: Path = get_split_bam(project_dir, chrom)
@@ -225,7 +237,7 @@ def unclip_bam(args):
 
 	# run pipeline script
 	script_name: str = "prepareBam-unclip.sh"
-	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, mem, unclip_bam)
+	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, unclip_bam)
 
 def get_features_depth(args):
 	# args we've already validated
@@ -233,12 +245,21 @@ def get_features_depth(args):
 	project_dir: Path = Path(args.project_dir)
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
-	# validate args specific to this stage: fasta_ref, gatk_jar, tmp_dir, mem
-	fasta_ref: Path = None
-	gatk_jar: Path = None
-	tmp_dir: Path = None
-	mem: int = None
-	# TODO
+	# validate args specific to this stage: fasta_ref, gatk_jar, gatk_mem
+	assert args.fasta_ref, "fasta_ref must be specified for unclip-bam stage"
+	fasta_ref: Path = Path(args.fasta_ref)
+	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
+
+	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
+	gatk_jar: Path = Path(args.gatk_jar)
+	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+
+	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
+	gatk_mem: int = int(args.gatk_mem)
+	
+	# prepare tmp dir
+	tmp_dir: Path = get_tmp_dir(project_dir)
+	tmp_dir.mkdir(exist_ok=True)
 
 	# validate results of last stage: split-bam
 	split_bam: Path = get_split_bam(project_dir, chrom)
@@ -246,12 +267,14 @@ def get_features_depth(args):
 	assert quickcheck_bam(split_bam), f"{split_bam} is invalid: try running split-bam --chrom={chrom}"
 
 	# get path to new feature
+	get_features_dir(project_dir).mkdir(exist_ok=True)
+	get_features_dir(project_dir, chrom).mkdir(exist_ok=True)
 	depth_feature_gz: Path = get_depth_feature_gz(project_dir, chrom)
 	assert not depth_feature_gz.exists(), f"get-features-depth --chrom={chrom} writes to {depth_feature_gz} but that already exists, please delete or move"
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
-	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, mem, depth_feature_gz)
+	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz)
 
 def get_features_nReads(args):
 	# args we've already validated
@@ -259,12 +282,21 @@ def get_features_nReads(args):
 	project_dir: Path = Path(args.project_dir)
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
-	# validate args specific to this stage: fasta_ref, gatk_jar, tmp_dir, mem
-	fasta_ref: Path = None
-	gatk_jar: Path = None
-	tmp_dir: Path = None
-	mem: int = None
-	# TODO
+	# validate args specific to this stage: fasta_ref, gatk_jar, gatk_mem
+	assert args.fasta_ref, "fasta_ref must be specified for unclip-bam stage"
+	fasta_ref: Path = Path(args.fasta_ref)
+	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
+
+	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
+	gatk_jar: Path = Path(args.gatk_jar)
+	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+
+	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
+	gatk_mem: int = int(args.gatk_mem)
+	
+	# prepare tmp dir
+	tmp_dir: Path = get_tmp_dir(project_dir)
+	tmp_dir.mkdir(exist_ok=True)
 
 	# validate restuls of last stage: unclip-bam
 	unclip_bam: Path = get_unclip_bam(project_dir, chrom)
@@ -272,12 +304,14 @@ def get_features_nReads(args):
 	assert quickcheck_bam(unclip_bam), f"{unclip_bam} is invalid: try running unclip-bam --chrom={chrom}"
 	
 	# get path to new feature
+	get_features_dir(project_dir).mkdir(exist_ok=True)
+	get_features_dir(project_dir, chrom).mkdir(exist_ok=True)
 	nReads_feature_gz: Path = get_nReads_feature_gz(project_dir, chrom)
 	assert not nReads_feature_gz.exists(), f"get-features-nReads --chrom={chrom} writes to {nReads_feature_gz} but that already exists, please delete or move"
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
-	run_script(script_name, unclip_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, meme, nReads_feature_gz)
+	run_script(script_name, unclip_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, nReads_feature_gz)
 
 def get_features_read(args):
 	# args we've already validated
@@ -286,12 +320,14 @@ def get_features_read(args):
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)	
 
 	# validate results of last stage: split-bam
-	split_bam: Path = get_split_bam(project_dir, bam)
+	split_bam: Path = get_split_bam(project_dir, chrom)
 	assert split_bam.is_file(), f"get-features-read --chrom={chrom} needs to access {split_bam}: try running split-bam --chrom={chrom}"
 	assert quickcheck_bam(split_bam), f"{split_bam} is invalid: try running split-bam --chrom={chrom}"
 
 	# get path to new feature
-	read_features: Path = get_read_features(project_dir, chrom)
+	get_features_dir(project_dir).mkdir(exist_ok=True)
+	get_features_dir(project_dir, chrom).mkdir(exist_ok=True)
+	read_features: Path = get_read_features_gz(project_dir, chrom)
 	assert not read_features.exists(), f"get-features-read --chrom={chrom} writes to {read_features} but that already exists, please delete or move"
 
 	# run pipeline script
@@ -374,6 +410,9 @@ if __name__ == "__main__":
 	parser.add_argument("--bam", type=str, help="BAM on which to execute pipeline, required for initial stage, rmdup-bam")
 	parser.add_argument("--chrom", choices=CHROMS, type=str, help="Chrom to execute stage of pipeline on, required for all stages of pipeline except rmdup-bam")
 	parser.add_argument("--beds_dir", type=str, help="Absolute path to directory where one bed file for each chrom [1-22, X, Y] is stored as ${chrom}.bed")
+	parser.add_argument("--fasta_ref", type=str, help="Absolute path to genome build FASTA reference, required for unclip-bam, get-features-depth, get-features-nReads, compile-features")
+	parser.add_argument("--gatk_jar", type=str, help="Absolute path to GATK JAR file, required for unclip-bam, get-features-depth, get-features-nReads")
+	parser.add_argument("--gatk_mem", type=int, default=5, help="Amount of memory, in GB, to run GATK with (default: 5)")
 
 	args = parser.parse_args()
 
