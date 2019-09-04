@@ -20,9 +20,7 @@ transform="${scotchDir}/transformFeatures.sh"
 
 #3. Add RFs
 add="${scotchDir}/addRegionFeatures.sh"
-bash "$combine" "$featuresDir" "$featureSet" > ${outMatrix}.combined
-cat ${outMatrix}.combined | "$transform" "$meanDepth" "$meanNReads" > ${outMatrix}.transformed
-cat ${outMatrix}.transformed | "$add" "$bed" "$rfs" "$tmpDir" > "${outMatrix}.no_slide"
+bash "$combine" "$featuresDir" | "$transform" "$meanDepth" "$meanNReads" | "$add" "$bed" "$rfs" "$tmpDir" > "${outMatrix}.no_slide"
 
 #4. Slide
 slide="${scotchDir}/slideFeatures.sh"
