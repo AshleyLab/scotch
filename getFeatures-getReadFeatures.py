@@ -25,8 +25,8 @@ with open(bed, "r") as b:
 
 #Prepare to write TSV GZ
 outFeatureRaw = outFeature + ".raw" #when finish, rename to remove .raw
-o = gzip.open(outFeatureRaw, "wb")
-writer = csv.writer(o, delimiter="\t")
+o = gzip.open(outFeatureRaw, "wt", newline="")
+writer = csv.writer(o, delimiter="\t", lineterminator="\n")
 
 #where we'll store info about six features
 #two qualities
