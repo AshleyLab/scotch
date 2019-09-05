@@ -29,7 +29,8 @@ QUAL = "100"
 FILTER = "PASS"
 INFO_TEMPLATE = "PROBS={}" 
 FORMAT = "GT"
-SAMPLE = "./."
+GT = "./."
+ENCODE_GT = "0/1"
 
 # get chromosome lengths from fasta reference for ##contig headers
 def get_chrom_lengths(fasta: Any) -> Dict[str, int]:
@@ -90,8 +91,8 @@ def get_alt_for_ref(ref: str) -> str:
 		return "A"
 
 # write a variant with given fields to a list of writers
-def write_variant(writers: List[Any], chrom: str, pos: int, ref: str, alt: str, info: str) -> None:
-	variant_row = [chrom, pos, ID, ref, alt, QUAL, FILTER, info, FORMAT, SAMPLE]
+def write_variant(writers: List[Any], chrom: str, pos: int, ref: str, alt: str, info: str, gt: str) -> None:
+	variant_row = [chrom, pos, ID, ref, alt, QUAL, FILTER, info, FORMAT, gt]
 	for writer in writers:
 		writer.writerow(variant_row)
 
@@ -115,10 +116,10 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 		# base at shifted_pos is deleted, base at (shifted_pos - 1) is retained
 		ref: str = get_nucs(fasta, chrom, shifted_pos - 1, shifted_pos + 1)
 		alt: str = get_nucs(fasta, chrom, shifted_pos - 1)
-		write_variant(results_writers, chrom, shifted_pos - 1, ref, alt, info)
+		write_variant(results_writers, chrom, shifted_pos - 1, ref, alt, info, GT)
 	else:
 		alt: str = f"<{pred_type.upper()}>"
-		write_variant(results_writers, chrom, shifted_pos, shifted_pos_ref, alt, info)
+		write_variant(results_writers, chrom, shifted_pos, shifted_pos_ref, alt, info, GT)
 
 	# write encoded results to encoded vcfs
 	encode_all_writer = [writers["encode_all"]]
@@ -127,17 +128,17 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 		del_L_ref: str = shifted_pos_ref
 		del_L_alt: str = get_alt_for_ref(del_L_ref)
 		del_L_writers = encode_all_writer + [writers["encode_del_L"]]
-		write_variant(del_L_writers, chrom, del_L_pos, del_L_ref, del_L_alt, info)
+		write_variant(del_L_writers, chrom, del_L_pos, del_L_ref, del_L_alt, info, ENCODE_GT)
 
 		del_R_pos: int = shifted_pos + 1
 		del_R_ref: str = get_nucs(fasta, chrom, del_R_pos)
 		del_R_alt: str = get_alt_for_ref(del_R_ref)
 		del_R_writers = encode_all_writer + [writers["encode_del_R"]]
-		write_variant(del_R_writers, chrom, del_R_pos, del_R_ref, del_R_alt, info)
+		write_variant(del_R_writers, chrom, del_R_pos, del_R_ref, del_R_alt, info, ENCODE_GT)
 	else:
 		alt: str = get_alt_for_ref(shifted_pos_ref)
 		writers = encode_all_writer + [writers[f"encode_{pred_type}"]]
-		write_variant(writers, chrom, shifted_pos, shifted_pos_ref, alt, info)
+		write_variant(writers, chrom, shifted_pos, shifted_pos_ref, alt, info, ENCODE_GT)
 
 if __name__ == "__main__":
 
