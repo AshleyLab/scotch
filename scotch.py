@@ -55,13 +55,13 @@ def get_feature_matrix_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "matrix.txt.gz"
 
 # results convenience funcs
-def get_scotch_tsv_results(project_dir: Path, for_chrom: str) -> Path:
+def get_tsv_results(project_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
-	return get_results_dir(project_dir) / f"results.{for_chrom}.scotch-tsv"
+	return get_results_dir(project_dir) / f"results.{for_chrom}.tsv"
 
-def get_vcf_results(project_dir: Path, for_chrom: str) -> Path:
+def get_vcf_results_stub(project_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
-	return get_results_dir(project_dir) / f"results.{for_chrom}.vcf"
+	return get_results_dir(project_dir) / f"results.{for_chrom}"
 
 # bed convenience funcs
 def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
@@ -395,14 +395,16 @@ def predict(args):
 
 	# get output files for this stage
 	get_results_dir(project_dir).mkdir(exist_ok=True)
-	scotch_tsv_results: Path = get_scotch_tsv_results(project_dir, chrom)
-	assert not scotch_tsv_results.exists(), f"predict --chrom={chrom} writes to {scotch_tsv_results} but that already exists, please delete or move"
-	vcf_results: Path = get_vcf_results(project_dir, chrom)
-	assert not vcf_results.exists(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
+	tsv_results: Path = get_tsv_results(project_dir, chrom)
+	# disabled while testing make vcf functionality
+	#assert not tsv_results.exists(), f"predict --chrom={chrom} writes to {tsv_results} but that already exists, please delete or move"
+	vcf_results_stub: Path = get_vcf_results_stub(project_dir, chrom)
+	# assert actual children do not exist ?
+	#assert not vcf_results_stub.exists(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
 
 	# run pipeline script
 	script_name: str = "doPredict.sh"
-	run_script(script_name, feature_matrix, scotch_tsv_results, model_path, fasta_ref, vcf_results)
+	run_script(script_name, feature_matrix, tsv_results, model_path, fasta_ref, vcf_results_stub)
 
 # map keywords to functions that execute pipeline stages
 COMMANDS = {
