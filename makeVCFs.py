@@ -15,6 +15,8 @@ import typing
 import sys
 
 # constants
+CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
+
 # types of Scotch calls
 PRED_TYPES = ["del_L", "del_R", "dOne", "ins"]
 # types of calls for which we subtract one from the position, to adjust indexing
@@ -29,12 +31,17 @@ INFO_TEMPLATE = "PROBS={}"
 FORMAT = "GT"
 SAMPLE = "./."
 
-# write_header to provided csv writer
-def write_header(writer: Any) -> None:
+# get chromosome lengths from fasta reference for ##contig headers
+def get_chrom_lengths(fasta: Any) -> Dict[str, int]:
+	return {chrom: fasta.get_reference_length(chrom) for chrom in CHROMS}
 
+# write_header to provided csv writer
+def write_header(writer: Any, chrom_lengths: Dict[str, int]) -> None:
+
+	# generic vcf headers
 	headers: [str] = ["##fileformat=VCFv4.1"]
 	headers.append("##phasing=none")
-	headers.append("""##ALT=<ID=DEL_L, Description="Deletion Start">""")
+	headers.append("##ALT=<ID=DEL_L, Description=\"Deletion Start\">")
 	headers.append("##ALT=<ID=DEL_R, Description=\"Deletion End\">")
 	headers.append("##ALT=<ID=INS,Description=\"Insertion\">")
 	headers.append("##INFO=<ID=PROBS,Number=1,Type=String,Description=\"Class probabilites from random forest model\">")
@@ -42,7 +49,13 @@ def write_header(writer: Any) -> None:
 
 	for header in headers:
 		writer.writerow([header])
-		
+
+	# contig headers
+	for chrom in CHROMS:
+		chrom_length: int = chrom_lengths[chrom]
+		writer.writerow([f"##contig=<ID={chrom},length={chrom_length}>"])
+
+	# column headers
 	writer.writerow(["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT", "SAMPLE"])
 
 # get nucleotides from FASTA at position
@@ -155,8 +168,9 @@ if __name__ == "__main__":
 	}
 	
 	# write VCF headers to output files
+	chrom_lengths: Dict[str, int] = get_chrom_lengths(fasta)
 	for _, writer in writers.items():
-		write_header(writer)
+		write_header(writer, chrom_lengths)
 
 	# process variants
 	with open(tsv_results_path, "r") as t: 
