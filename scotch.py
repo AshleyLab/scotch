@@ -90,7 +90,11 @@ def run_script(script_name, *args):
 	str_args = [str(a) for a in args]
 	print(f"running {script} with {str_args}")
 
-	subprocess.call([script] + str_args)
+	# TODO; make this nicer
+	if script.suffix != ".py":
+		subprocess.call([script] + str_args)
+	else:
+		subprocess.call(["python", script] + str_args)
 
 # prints graphical report of status
 def check_status(args) -> None: 
@@ -390,8 +394,8 @@ def compile_features(args):
 	assert not feature_matrix.exists(), f"compile-features --chrom={chrom} writes to {feature_matrix} but that already exists, please delete or move"
 
 	# run pipeline script
-	script_name: str = "compileFeatures.sh"
-	run_script(script_name, features_dir, depth_feature, nReads_feature, read_features, region_features, depth_feature_stats, nReads_feature_stats, feature_matrix)
+	script_name: str = "compileFeatures.py"
+	run_script(script_name, depth_feature, nReads_feature, read_features, rfs_file, depth_feature_stats, nReads_feature_stats, feature_matrix)
 
 def predict(args):
 	# args we've already validated

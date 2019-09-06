@@ -2,6 +2,7 @@
 
 import csv
 import gzip
+from pathlib import Path
 import sys
 from typing import Any, List, NamedTuple
 
@@ -96,15 +97,15 @@ class NormalizedDeltaFeats(NamedTuple):
 
 def get_mean_from_stats(stats_file: Path) -> float: 
 	with open(stats_file) as stats:
-		lines = stats_file.readlines()
+		lines = stats.readlines()
 	return float(lines[0].strip().split(DELIMITER)[STATS_MEAN_INDEX])
 
 # confirm chrom and pos match across feature files, and return
 def get_coordinates(depth_line: List, nReads_line: List, read_line: List, rfs_line: List) -> Coordinates:
 	
-	assert depth_line[0] == nReads_line[0] == read_line[0] == rfs_line[0]
-	assert depth_line[1] == nReads_line[1] == read_line[1] == rfs_line[1]
-	return Coordinates(chrom=depth_line[0], pos=depth_line[1])
+	assert depth_line[0] == nReads_line[0] == read_line[0] == rfs_line[0], "Chromosomes do not match: {depth_line[0]}, {nReads_line[0]}, {read_line[0]}, {rfs_line[0]}"
+	assert depth_line[1] == nReads_line[1] == read_line[1] == rfs_line[1], "Positions do not match: {depth_line[1]}, {nReads_line[1]}, {read_line[1]}, {rfs_line[1]}"
+	return Coordinates(chrom=depth_line[0], pos=int(depth_line[1]))
 
 # compute base feats from feature files
 def get_base_feats(coords: Coordinates, depth_line: List, nReads_line: List, read_line: List, rfs_line: List) -> BaseFeats:
@@ -112,32 +113,32 @@ def get_base_feats(coords: Coordinates, depth_line: List, nReads_line: List, rea
 	# need str, int wrapper?	
 	return BaseFeats(
 		coords=coords,
-		depth=depth_line[2],
-		nReads=nReads_line[2],
-		mapQ=read_line[2],
-		baseQ=read_line[3],
-		allSC=read_line[4],
-		edgeSC=read_line[5]
-		ins=read_line[6],
-		edgeDel=read_line[7],
-		scCons=read_line[8],
-		scQual=read_line[9],
-		nHQual=read_line[10],
-		scDist=read_line[11]
+		depth=float(depth_line[2]),
+		nReads=float(nReads_line[2]),
+		mapQ=float(read_line[2]),
+		baseQ=float(read_line[3]),
+		allSC=float(read_line[4]),
+		edgeSC=float(read_line[5]),
+		ins=float(read_line[6]),
+		edgeDel=float(read_line[7]),
+		scCons=float(read_line[8]),
+		scQual=float(read_line[9]),
+		nHQual=float(read_line[10]),
+		scDist=float(read_line[11]),
 		region_feats=RegionFeats(
-			nistHC=rfs_line[2],
-			repMasker=rfs_line[3],
-			segDups=rfs_line[4],
-			LCR=rfs_line[5],
-			gc50=rfs_line[6],
-			gc1000=rfs_line[7],
-			map100=rfs_line[8],
-			uniq35=rfs_line[9]
+			nistHC=float(rfs_line[2]),
+			repMasker=float(rfs_line[3]),
+			segDups=float(rfs_line[4]),
+			LCR=float(rfs_line[5]),
+			gc50=float(rfs_line[6]),
+			gc1000=float(rfs_line[7]),
+			map100=float(rfs_line[8]),
+			uniq35=float(rfs_line[9])
 		)
 	)
 
 # compute normalized feats from BaseFeats
-def get_normalized_feats(base_feats: BaseFeats, matrix_mean_depth: float, matrix_mean_nReads: float) -> NormalizedBaseFeats
+def get_normalized_feats(base_feats: BaseFeats, matrix_mean_depth: float, matrix_mean_nReads: float) -> NormalizedBaseFeats:
 
 	# normalize depth, nReads against matrix-wide means
 	normalized_depth: float = base_feats.depth / matrix_mean_depth
@@ -176,7 +177,7 @@ def get_normalized_feats(base_feats: BaseFeats, matrix_mean_depth: float, matrix
 def get_delta_feats(base_feats: BaseFeats, last_base_feats: BaseFeats) -> DeltaFeats:
 	
 	# used in get_normalized_delta_feats
-	mean_nReads: float = (base_feats.nReads + last_base_feats.nReads.nReads) / 2
+	mean_nReads: float = (base_feats.nReads + last_base_feats.nReads) / 2
 
 	return DeltaFeats(
 		coords=base_feats.coords,
@@ -223,10 +224,11 @@ def get_normalized_delta_feats(delta_feats: DeltaFeats) -> NormalizedDeltaFeats:
 		normalized_mapQ_delta=normalized_mapQ_delta,
 		normalized_baseQ_delta=normalized_baseQ_delta,
 		normalized_allSC_delta=normalized_allSC_delta,
+		normalized_edgeSC_delta=normalized_edgeSC_delta,
 		normalized_ins_delta=normalized_ins_delta,
 		normalized_edgeDel_delta=normalized_edgeDel_delta,
 		scCons_delta=delta_feats.scCons_delta,
-		scQual_delta=dela_feats.scQual_delta
+		scQual_delta=delta_feats.scQual_delta
 	)
 
 # combine features into a single list
@@ -245,17 +247,19 @@ def collate_feats(last_normalized_base_feats: NormalizedBaseFeats,
 		last_nbf.scCons, last_nbf.scQual, last_nbf.nHQual, last_nbf.scDist,
 		last_ndf.normalized_depth_delta, last_ndf.normalized_nReads_delta, last_ndf.normalized_mapQ_delta, last_ndf.normalized_baseQ_delta,
 		last_ndf.normalized_allSC_delta, last_ndf.normalized_edgeSC_delta, last_ndf.normalized_ins_delta, last_ndf.normalized_edgeDel_delta,
-		last_ndf.scConsDelta, last_ndf.scQual_delta,
+		last_ndf.scCons_delta, last_ndf.scQual_delta,
 		last_nbf.region_feats.nistHC, last_nbf.region_feats.repMasker, last_nbf.region_feats.segDups, last_nbf.region_feats.LCR,
 		last_nbf.region_feats.gc50, last_nbf.region_feats.gc1000, last_nbf.region_feats.map100, last_nbf.region_feats.uniq35,
 		ndf.normalized_depth_delta, ndf.normalized_nReads_delta, ndf.normalized_mapQ_delta, ndf.normalized_baseQ_delta,
-		ndf.normalized_allSC_delta, ndf.normalized_edgeSC_delta, ndf.normalized_ins_delta, ndf.normalized_edgeDel_delta]
+		ndf.normalized_allSC_delta, ndf.normalized_edgeSC_delta, ndf.normalized_ins_delta, ndf.normalized_edgeDel_delta,
+		ndf.scCons_delta, ndf.scQual_delta]
 
 # write feats through csv writer
 def write_feats(writer: Any, feats: List) -> None:
 	
-	print("\t".join(feats))
-	#writer.writerow(feats)
+	print(feats)
+	#print("\t".join(feats))
+	writer.writerow(feats)
 
 # get csv readers for reading csv files
 def get_reader(feature: Any) -> Any:
@@ -265,14 +269,17 @@ def get_reader(feature: Any) -> Any:
 EMPTY_COORDS = Coordinates(chrom="0", pos=0)
 EMPTY_REGION_FEATS = RegionFeats(nistHC=0.0, repMasker=0.0, segDups=0.0, LCR=0.0, gc50=0.0, gc1000=0.0, map100=0.0, uniq35=0.0)
 EMPTY_BASE_FEATS = BaseFeats(coords=EMPTY_COORDS, depth=0.0, nReads=0.0, mapQ=0.0, baseQ=0.0, allSC=0.0, edgeSC=0.0, ins=0.0, edgeDel=0.0,
-	scCons=0.0, scQual=0.0, nHQual=0.0, scDist=0.0, region_feats=EMPTY_REGION_FETS)
+	scCons=0.0, scQual=0.0, nHQual=0.0, scDist=0.0, region_feats=EMPTY_REGION_FEATS)
 EMPTY_NORMALIZED_BASE_FEATS = NormalizedBaseFeats(coords=EMPTY_COORDS, normalized_depth=0.0, normalized_nReads=0.0, mapQ=0.0, baseQ=0.0, 
 	normalized_allSC=0.0,normalized_edgeSC=0.0,normalized_ins=0.0,normalized_edgeDel=0.0,scCons=0.0,scQual=0.0,nHQual=0.0,scDist=0.0,region_feats=EMPTY_REGION_FEATS)
-EMPTY_DELTA_FEATS = NormalizedDeltaFeats(coords=EMPTY_COORDS, last_coords=EMPTY_COORDS, depth_delta=0.0, nReads_delta=0.0, mapQ_delta=0.0, baseQ_delta=0.0,
+EMPTY_DELTA_FEATS = DeltaFeats(coords=EMPTY_COORDS, last_coords=EMPTY_COORDS, mean_nReads=0.0, depth_delta=0.0, nReads_delta=0.0, mapQ_delta=0.0, baseQ_delta=0.0,
 	allSC_delta=0.0, edgeSC_delta=0.0, ins_delta=0.0, edgeDel_delta=0.0, scCons_delta=0.0, scQual_delta=0.0)
-EMPTY_NORMALIZED_DELTA_FEATS(coords=EMPTY_COORDS, last_coords=EMPTY_COORDS, normalized_depth_delta=0.0, normalized_nReads_delta=0.0, 
+EMPTY_NORMALIZED_DELTA_FEATS = NormalizedDeltaFeats(coords=EMPTY_COORDS, last_coords=EMPTY_COORDS, normalized_depth_delta=0.0, normalized_nReads_delta=0.0, 
 	normalized_mapQ_delta=0.0, normalized_baseQ_delta=0.0, normalized_allSC_delta=0.0, normalized_edgeSC_delta=0.0,
 	normalized_ins_delta=0.0, normalized_edgeDel_delta=0.0, scCons_delta=0.0, scQual_delta=0.0)
+
+LIMIT = 20
+counter = 0
 
 if __name__ == "__main__":
 
@@ -282,7 +289,7 @@ if __name__ == "__main__":
 	read_features_gz_path = sys.argv[3]
 	region_features_path = sys.argv[4]
 	depth_feature_stats = sys.argv[5]
-	nReads_featue_stats = sys.argv[6]
+	nReads_feature_stats = sys.argv[6]
 	out_matrix_gz_path = sys.argv[7]
 
 	# set up output
@@ -290,16 +297,19 @@ if __name__ == "__main__":
 	out_writer = csv.writer(out_matrix_gz, delimiter="\t", lineterminator="\n")
 
 	# get mean depth, nReads per sample from .stats files
-	matrix_mean_depth: float = get_mean_from_stats(depth_feature_stats)
-	matrix_mean_nReads: float = get_mean_from_stats(depth_feature_stats)
+	# decide whether to use path, make it nicer
+	matrix_mean_depth: float = get_mean_from_stats(Path(depth_feature_stats))
+	matrix_mean_nReads: float = get_mean_from_stats(Path(nReads_feature_stats))
 	assert matrix_mean_depth != 0 and matrix_mean_nReads != 0, "Mean sample depth or nReads must not be 0"
 	print(f"matrix_mean_depth is {matrix_mean_depth} and matrix_mean_nReads is {matrix_mean_nReads}")
+
+	print(f"region features path is {region_features_path}")
 
 	# iterate over feature files
 	with gzip.open(depth_feature_gz_path, "rt") as depth_feature, \
 		gzip.open(nReads_feature_gz_path, "rt") as nReads_feature, \
 		gzip.open(read_features_gz_path, "rt") as read_features, \
-		open(region_features_path, "rt") as region_features
+		open(region_features_path) as region_features:
 
 		is_first_line = True
 		features_iterator = zip(get_reader(depth_feature), get_reader(nReads_feature),
@@ -310,8 +320,11 @@ if __name__ == "__main__":
 		last_normalized_base_feats: NormalizedBaseFeats = EMPTY_NORMALIZED_BASE_FEATS
 		last_normalized_delta_feats: NormalizedDeltaFeats = EMPTY_NORMALIZED_DELTA_FEATS
 
+		# iterate over feature files
 		for depth_line, nReads_line, read_line, rfs_line in features_iterator:
 			
+			print(f"depth_line: {depth_line}, nReads_line: {nReads_line}, read_line: {read_line}, rfs_line: {rfs_line}")	
+
 			# get base features from this row
 			coords: Coordinates = get_coordinates(depth_line, nReads_line, read_line, rfs_line)
 			base_feats: BaseFeats = get_base_feats(coords, depth_line, nReads_line, read_line, rfs_line)
@@ -324,13 +337,16 @@ if __name__ == "__main__":
 			# write features for previous row, with these delta features and its own
 			if not is_first_line:
 				last_collated_feats: List = collate_feats(last_normalized_base_feats, last_normalized_delta_feats, normalized_delta_feats)
-				write_feats(writer, last_collated_feats)
+				write_feats(out_writer, last_collated_feats)
 
 			# save this row's features for next pass
 			is_first_line = False
 			last_base_feats = base_feats
 			last_normalized_base_feats = normalized_base_feats
 			last_normalized_delta_feats = normalized_delta_feats
+
+			counter += 1
+			assert counter < LIMIT, f"Only printing {LIMIT} lines."
 
 		# collate, write one more time
 		collated_feats: List = collate_feats(last_normalized_base_feats, last_normalized_delta_feats, EMPTY_NORMALIZED_DELTA_FEATS)
