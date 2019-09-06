@@ -45,8 +45,14 @@ def get_unclip_bam(project_dir: Path, for_chrom: str) -> Path:
 def get_depth_feature_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "depth.feat.gz"
 
+def get_depth_feature_stats(project_dir: Path, for_chrom: str) -> Path:
+	return get_features_dir(project_dir, for_chrom) / "depth.feat.stats"
+
 def get_nReads_feature_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "nReads.feat.gz"
+
+def get_nReads_feature_stats(project_dir: Path, for_chrom: str) -> Path:
+	return get_features_dir(project_dir, for_chrom) / "nReads.feat.stats"
 
 def get_read_features_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "read.feats.gz"
@@ -277,9 +283,12 @@ def get_features_depth(args):
 	depth_feature_gz: Path = get_depth_feature_gz(project_dir, chrom)
 	assert not depth_feature_gz.exists(), f"get-features-depth --chrom={chrom} writes to {depth_feature_gz} but that already exists, please delete or move"
 
+	# path to feature stats
+	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)	
+
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
-	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz)
+	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz, depth_feature_stats)
 
 def get_features_nReads(args):
 	# args we've already validated
@@ -314,9 +323,12 @@ def get_features_nReads(args):
 	nReads_feature_gz: Path = get_nReads_feature_gz(project_dir, chrom)
 	assert not nReads_feature_gz.exists(), f"get-features-nReads --chrom={chrom} writes to {nReads_feature_gz} but that already exists, please delete or move"
 
+	# path to feature stats
+	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)
+
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
-	run_script(script_name, unclip_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, nReads_feature_gz)
+	run_script(script_name, unclip_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, nReads_feature_gz, nReads_feature_stats)
 
 def get_features_read(args):
 	# args we've already validated
@@ -368,6 +380,10 @@ def compile_features(args):
 	read_features: Path = get_read_features_gz(project_dir, chrom)
 	assert read_features.is_file(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
 
+	# assert exist and n loci processed match
+	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)
+	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)	
+
 	# get path to feature matrix
 	features_dir: Path = get_features_dir(project_dir, chrom)
 	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
@@ -375,7 +391,7 @@ def compile_features(args):
 
 	# run pipeline script
 	script_name: str = "compileFeatures.sh"
-	run_script(script_name, features_dir, bed_file, tmp_dir, feature_matrix, rfs_file)
+	run_script(script_name, features_dir, depth_feature, nReads_feature, read_features, region_features, depth_feature_stats, nReads_feature_stats, feature_matrix)
 
 def predict(args):
 	# args we've already validated
