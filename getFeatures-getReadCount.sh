@@ -12,7 +12,8 @@ mem="$6"
 outFeature="$7"
 outFeatureStats="$8"
 
-log=$(sed "s|\.gz$|\.log|" <<< "$outFeature")
+outputBase=$(sed "s|\.gz$||" <<< "$outFeature")
+log="${outputBase}.log"
 
 #Use GATK to calculate depth across portion of BAM in BED
 java -Djava.io.tmpdir="$tmpDir" -Xmx"$mem"g -jar "$gatkJAR" \
@@ -23,7 +24,7 @@ java -Djava.io.tmpdir="$tmpDir" -Xmx"$mem"g -jar "$gatkJAR" \
 	--includeRefNSites \
 	-L "$bed" \
 	-I "$bam" \
-	-o /dev/stdout \
+	-o "$outputBase" \
 	-R "$fastaRef" 2> "$log" | \
 grep -vi warn	`#0` | \
 tail -n +2	`#1` | \
