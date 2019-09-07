@@ -10,8 +10,8 @@ scotchDir=$(dirname "$0")
 
 #run random forest
 echo Running random forest...
-predictR="${scotchDir}/predict.R"
-zcat "$fmPath" | Rscript "$predictR" "$modelPath" "$outPath"
+predict="${scotchDir}/predict.R"
+zcat "$fmPath" | Rscript "$predict" "$modelPath" "$outPath"
 
 #convert results to VCF
 echo Converting results to VCF...
