@@ -6,22 +6,22 @@ Clone this repository. And clone the repository with pre-calculated features tha
 
 ```
 $ git clone https://github.com/AshleyLab/scotch.git
+$ git clone https://github.com/AshleyLab/scotch-data
 ```
-*TODO*: Clone the other repo with git lfs? 
-Issue: https://github.com/git-lfs/git-lfs/issues/911
+That's it!
 
 ## Run 
 
 ### Overview
 
 ```
+# extract downloaded region features for GRCh37 regions of interest
+python ~/scotch/scotch.py prepare-region-features --beds_dir=~/beds/ --all_rfs_dir=~/scotch-data/ --output_trim_rfs_dir=~/trim_rfs/
+
 # remove duplicate reads from input BAM
 python ~/scotch/scotch.py rmdup-bam --project_dir=~/ABC123/ --bam=~/input.bam
 
-# somewhere
-python ~/scotch/scotch.py prepare-region-features ... 
-
-# can be parallelized by chrom
+# can process BAM in parallel by chromosome
 for chr in {1..22} X Y
 do
 	# split bam
@@ -37,7 +37,7 @@ do
 	done
 	
 	# compile features
-	python ~/scotch/scotch.py compile-features --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --trim_rfs_dir= TODO
+	python ~/scotch/scotch.py compile-features --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --trim_rfs_dir=~/trim_rfs/
 	
 	# make predictions
 	python ~/scotch/scotch.py predict -project_dir=~/ABC123/ --chrom=$chr --fasta_ref=~/GRCh37.fa
