@@ -8,7 +8,7 @@ from typing import Any, List, NamedTuple
 
 # constants
 # flag value for when nReads is 0 and we try to normalize against it
-DIV_BY_ZERO: float = 1000.0
+DIV_BY_ZERO = 1000
 # zero-indexed column in .stats file for feat mean value
 STATS_MEAN_INDEX: int = 1
 # delimiter expected in .feat and .stats files
@@ -20,15 +20,18 @@ class Coordinates(NamedTuple):
 	pos: int
 
 class RegionFeats(NamedTuple):
-	""" Collection of eight region features that describe for a genomic locus """
-	nistHC: float
-	repMasker: float
-	segDups: float
-	LCR: float
-	gc50: float
-	gc1000: float
-	map100: float
-	uniq35: float
+	""" Collection of eight region features that describe for a genomic locus 
+	    stored as strings because not modified, used in any calculations,
+	    and want to avoid rounding/padding
+	"""
+	nistHC: str
+	repMasker: str
+	segDups: str
+	LCR: str
+	gc50: str
+	gc1000: str
+	map100: str
+	uniq35: str
 
 class BaseFeats(NamedTuple):
 	""" Collection of base features, input directly to this script """
@@ -65,7 +68,7 @@ class NormalizedBaseFeats(NamedTuple):
 	region_feats: RegionFeats
 
 class DeltaFeats(NamedTuple):
-	""" Collection of "delta" features that describe the changes between two BaseFeats"""
+	""" Collection of "delta" features that describe the changes between two BaseFeats """
 	coords: Coordinates
 	last_coords: Coordinates
 	mean_nReads: float # used to normalize
@@ -126,14 +129,14 @@ def get_base_feats(coords: Coordinates, depth_line: List, nReads_line: List, rea
 		nHQual=float(read_line[10]),
 		scDist=float(read_line[11]),
 		region_feats=RegionFeats(
-			nistHC=float(rfs_line[2]),
-			repMasker=float(rfs_line[3]),
-			segDups=float(rfs_line[4]),
-			LCR=float(rfs_line[5]),
-			gc50=float(rfs_line[6]),
-			gc1000=float(rfs_line[7]),
-			map100=float(rfs_line[8]),
-			uniq35=float(rfs_line[9])
+			nistHC=rfs_line[2],
+			repMasker=rfs_line[3],
+			segDups=rfs_line[4],
+			LCR=rfs_line[5],
+			gc50=rfs_line[6],
+			gc1000=rfs_line[7],
+			map100=rfs_line[8],
+			uniq35=rfs_line[9]
 		)
 	)
 
@@ -254,12 +257,14 @@ def collate_feats(last_normalized_base_feats: NormalizedBaseFeats,
 		ndf.normalized_allSC_delta, ndf.normalized_edgeSC_delta, ndf.normalized_ins_delta, ndf.normalized_edgeDel_delta,
 		ndf.scCons_delta, ndf.scQual_delta]
 
+def format_feat(feat) -> str:
+	if isinstance(feat, float):
+		return f"{feat:0.6g}"
+	return feat
+
 # write feats through csv writer
 def write_feats(writer: Any, feats: List) -> None:
-	
-	print(feats)
-	#print("\t".join(feats))
-	writer.writerow(feats)
+	writer.writerow(format_feat(feat) for feat in feats)
 
 # get csv readers for reading csv files
 def get_reader(feature: Any) -> Any:
@@ -278,8 +283,9 @@ EMPTY_NORMALIZED_DELTA_FEATS = NormalizedDeltaFeats(coords=EMPTY_COORDS, last_co
 	normalized_mapQ_delta=0.0, normalized_baseQ_delta=0.0, normalized_allSC_delta=0.0, normalized_edgeSC_delta=0.0,
 	normalized_ins_delta=0.0, normalized_edgeDel_delta=0.0, scCons_delta=0.0, scQual_delta=0.0)
 
-LIMIT = 20
 counter = 0
+increment = 10000
+increment_hit = 0
 
 if __name__ == "__main__":
 
@@ -303,8 +309,6 @@ if __name__ == "__main__":
 	assert matrix_mean_depth != 0 and matrix_mean_nReads != 0, "Mean sample depth or nReads must not be 0"
 	print(f"matrix_mean_depth is {matrix_mean_depth} and matrix_mean_nReads is {matrix_mean_nReads}")
 
-	print(f"region features path is {region_features_path}")
-
 	# iterate over feature files
 	with gzip.open(depth_feature_gz_path, "rt") as depth_feature, \
 		gzip.open(nReads_feature_gz_path, "rt") as nReads_feature, \
@@ -323,7 +327,7 @@ if __name__ == "__main__":
 		# iterate over feature files
 		for depth_line, nReads_line, read_line, rfs_line in features_iterator:
 			
-			print(f"depth_line: {depth_line}, nReads_line: {nReads_line}, read_line: {read_line}, rfs_line: {rfs_line}")	
+			#print(f"depth_line: {depth_line}, nReads_line: {nReads_line}, read_line: {read_line}, rfs_line: {rfs_line}")	
 
 			# get base features from this row
 			coords: Coordinates = get_coordinates(depth_line, nReads_line, read_line, rfs_line)
@@ -346,11 +350,13 @@ if __name__ == "__main__":
 			last_normalized_delta_feats = normalized_delta_feats
 
 			counter += 1
-			assert counter < LIMIT, f"Only printing {LIMIT} lines."
+			if counter > increment_hit:
+				print(f"Processed {counter} lines.")
+				increment_hit += increment
 
 		# collate, write one more time
 		collated_feats: List = collate_feats(last_normalized_base_feats, last_normalized_delta_feats, EMPTY_NORMALIZED_DELTA_FEATS)
-		write_feats(writer, collated_feats)
+		write_feats(out_writer, collated_feats)
 
 	print("Done.")
 

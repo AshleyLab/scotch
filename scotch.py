@@ -8,7 +8,9 @@ import typing
 
 # constants
 CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
+AUX_DIR = "aux"
 MODEL_NAME = "scotch-r1-wgs-model.RData"
+GATK_JAR_NAME = "gatk-3.8.jar"
 
 # paths used by multiple stages
 def get_bams_dir(project_dir: Path, for_chrom: str = None) -> Path:
@@ -75,15 +77,27 @@ def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
 	return beds_dir / f"{for_chrom}.bed"
 
 # rfs convenience func
-def get_rfs_file(rfs_dir: Path, for_chrom: str) -> Path:
+def get_all_rfs_file(all_rfs_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
-	return rfs_dir / f"{for_chrom}.rfs"
+	return all_rfs_dir / f"{for_chrom}.rfs.gz"
+
+def get_trim_rfs_file(trim_rfs_dir: Path, for_chrom: str) -> Path:
+	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
+	return trim_rfs_dir / f"{for_chrom}.rfs.trim.gz"
 
 # check bam is valid
 def quickcheck_bam(bam: Path) -> bool:
 	bam_path: str = str(bam.resolve())
 	return subprocess.call(["samtools", "quickcheck", bam_path]) == 0
 
+# check GATK version is compatible
+def check_gatk_38(gatk_jar: Path) -> bool:
+	check_cmd: List = ["java", "-jar", str(gatk_jar.resolve()), "--version"]
+	verion_info: str = subprocess.check_output(check_cmd).decode()
+	print(f"GATK version info: {version_info}")
+	return version_info.startswith("3.8")
+
+# run a script
 def run_script(script_name, *args):
 	scotch_dir: Path = Path(__file__).parent
 	script: Path = scotch_dir / script_name
@@ -233,6 +247,7 @@ def unclip_bam(args):
 	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
 	gatk_jar: Path = Path(args.gatk_jar)
 	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+	assert check_gatk_38(gatk_jar), "Scotch requires GATK 3.8"
 
 	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
 	gatk_mem: int = int(args.gatk_mem)
@@ -268,6 +283,7 @@ def get_features_depth(args):
 	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
 	gatk_jar: Path = Path(args.gatk_jar)
 	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+	assert check_gatk_38(gatk_jar), "Scotch requires GATK 3.8"
 
 	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
 	gatk_mem: int = int(args.gatk_mem)
@@ -308,6 +324,7 @@ def get_features_nReads(args):
 	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
 	gatk_jar: Path = Path(args.gatk_jar)
 	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
+	assert check_gatk_38(gatk_jar), "Scotch requires GATK 3.8"
 
 	assert isinstance(args.gatk_mem, int), "gatk_mem must be an int"
 	gatk_mem: int = int(args.gatk_mem)
@@ -362,11 +379,11 @@ def compile_features(args):
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
 	# validate args specific to this stage: rfs_dir
-	assert args.rfs_dir, "compile-features needs to be a supplied a directory of region feature files"
-	rfs_dir: Path = Path(args.rfs_dir)
-	assert rfs_dir.is_dir(), "rfs_dir must be a directory that exists"
-	rfs_file: Path = get_rfs_file(rfs_dir, chrom)
-	assert rfs_file.is_file(), "rfs_dir must contain a file ${chrom}.rfs, where chrom is the specified chrom"
+	assert args.trim_rfs_dir, "compile-features required trim_rfs_dir, a directory of region feature files (can be produced by prepare-region-features)"
+	trim_rfs_dir: Path = Path(args.trim_rfs_dir)
+	assert trim_rfs_dir.is_dir(), "trim_rfs_dir must be a directory that exists"
+	trim_rfs_file: Path = get_trim_rfs_file(rfs_dir, chrom)
+	assert trim_rfs_file.is_file(), f"trim_rfs_dir must contain a file for {chrom}, {trim_rfs_file}"
 
 	# prepare tmp dir
 	tmp_dir: Path = get_tmp_dir(project_dir)
@@ -384,7 +401,7 @@ def compile_features(args):
 	read_features: Path = get_read_features_gz(project_dir, chrom)
 	assert read_features.is_file(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
 
-	# assert exist and n loci processed match
+	# TODO: assert exist and n loci processed match
 	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)
 	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)	
 
@@ -395,14 +412,14 @@ def compile_features(args):
 
 	# run pipeline script
 	script_name: str = "compileFeatures.py"
-	run_script(script_name, depth_feature, nReads_feature, read_features, rfs_file, depth_feature_stats, nReads_feature_stats, feature_matrix)
+	run_script(script_name, depth_feature, nReads_feature, read_features, trim_rfs_file, depth_feature_stats, nReads_feature_stats, feature_matrix)
 
 def predict(args):
 	# args we've already validated
 	chrom: str = args.chrom
 	project_dir: Path = Path(args.project_dir)
 
-	model_path: Path = Path(__file__).parent / MODEL_NAME
+	model_path: Path = Path(__file__).parent / AUX_DIR / MODEL_NAME
 
 	# validate args specific to this stage: model_path, fasta_ref
 	assert args.fasta_ref, "fasta_ref must be specified for predict"
@@ -426,6 +443,32 @@ def predict(args):
 	script_name: str = "doPredict.sh"
 	run_script(script_name, feature_matrix, tsv_results, model_path, fasta_ref, vcf_results_stub)
 
+def prepare_region_features(args):
+	# args we've already validated
+	beds_dir: Path = Path(args.beds_dir)
+	
+	# validate args specific to this stage: beds_dir, all_rfs_dir, output_trim_rfs_dir
+	assert args.all_rfs_dir, "prepare-region-features requires all_rfs_dir (available at https://github.com/AshleyLab/scotch-data)"
+	all_rfs_dir: Path = Path(args.all_rfs_dir)
+	assert all_rfs_dir.is_dir(), "all_rfs_dir must be a directory that exists"
+	
+	assert args.output_trim_rfs_dir, "prepare-region-features requires output_trim_rfs_dir (can be an empty directory) to know where to write output"
+	output_trim_rfs_dir: Path = Path(args.output_trim_rfs_dir)
+	assert output_trim_rfs_dir.is_dir(), "output_trim_rfs_dir must be a directory that exists"
+		
+	for chrom in CHROMS:
+		bed_file: Path = get_bed_file(beds_dir, chrom)
+		assert bed_file.is_file(), f"beds_dir must contain a file for {chrom}, {bed_file}"
+		all_rfs_file = get_all_rfs_file(all_rfs_dir, chrom)
+		assert all_rfs_file.is_file(), f"all_rfs_dir must contain a file for {chrom}, {all_rfs_file}"
+		output_trim_rfs_file = get_trim_rfs_file(output_trim_rfs_dir, chrom)
+		assert not output_trim_rfs_file.exists(), f"prepare-region-features writes to {output_trim_rfs_file} but that already exists, please delete or move"
+
+	# run pipeline script
+	script_name: str= "prepareRegionFeatures.sh"
+	run_script(script_name, beds_dir, all_rfs_dir, output_trim_rfs_dir)
+
+
 # map keywords to functions that execute pipeline stages
 COMMANDS = {
 	"rmdup-bam" : rmdup_bam,
@@ -436,40 +479,50 @@ COMMANDS = {
 	"get-features-read": get_features_read,
 	"compile-features": compile_features,
 	"predict": predict,
+	"prepare-region-features": prepare_region_features,
 	"check-status": check_status
 }
 
 if __name__ == "__main__":
 
+	# get GATK JAR in aux/ directory
+	aux_gatk_jar_path: Path = Path(__file__).parent / AUX_DIR / GATK_JAR_NAME
+	aux_gatk_jar: str = str(aux_gatk_jar_path.resolve())
+
 	parser = argparse.ArgumentParser(description="Process args")
 	parser.add_argument("command", choices=COMMANDS.keys(), type=str, help="Stage of Scotch pipeline to execute")
-	parser.add_argument("--project_dir", required=True, type=str, help="Absolute path to directory where Scotch files are stored")
+	parser.add_argument("--project_dir", type=str, help="Absolute path to directory where Scotch files are stored")
 	parser.add_argument("--bam", type=str, help="BAM on which to execute pipeline, required for initial stage, rmdup-bam")
-	parser.add_argument("--chrom", choices=CHROMS, type=str, help="Chrom to execute stage of pipeline on, required for all stages of pipeline except rmdup-bam")
+	parser.add_argument("--chrom", choices=CHROMS, type=str, help="Chrom to execute stage of pipeline on, required for all stages of pipeline except rmdup-bam and prepare-region-features")
 	parser.add_argument("--beds_dir", type=str, help="Absolute path to directory where one bed file for each chrom [1-22, X, Y] is stored as ${chrom}.bed")
 	parser.add_argument("--fasta_ref", type=str, help="Absolute path to genome build FASTA reference, required for unclip-bam, get-features-depth, get-features-nReads, compile-features")
-	parser.add_argument("--gatk_jar", type=str, help="Absolute path to GATK JAR file, required for unclip-bam, get-features-depth, get-features-nReads")
+	parser.add_argument("--gatk_jar", type=str, default=aux_gatk_jar, help="Absolute path to GATK 3.8 JAR file, required for unclip-bam, get-features-depth, get-features-nReads, default in aux/")
 	parser.add_argument("--gatk_mem", type=int, default=5, help="Amount of memory, in GB, to run GATK with (default: 5)")
-	parser.add_argument("--rfs_dir", type=str, help="Absolute path to direcotry where one region feature file for each chrom [1-22, X, Y] is stored as ${chrom}.rfs, required for compile-features")
+	parser.add_argument("--all_rfs_dir", type=str, help="For prepare-region-features: absolute path to directory with region features for all positions(available at https://github.com/AshleyLab/scotch-data)")
+	parser.add_argument("--output_trim_rfs_dir", type=str, help="For prepare-region-features: absolute path to directory to output trimmed region features to")
+	parser.add_argument("--trim_rfs_dir", type=str, help="Absolute path to directory with one region feature file for each chrom [1-22, X, Y], obtained from prepare-region-features")
 
 	args = parser.parse_args()
 
-	# validate project_dir
-	project_dir: str = args.project_dir
-	assert Path(project_dir).is_dir(), "project_dir must be a path to a directory that exists"
-	
 	command: str = args.command
-	if command not in ["rmdup-bam", "check-status"]:
+	if command not in ["prepare-region-features"]:
+		# validate project_dir
+		assert args.project_dir, "All pipeline stages except prepare-region-features require project_dir"
+		project_dir: Path = Path(args.project_dir)
+		assert project_dir.is_dir(), "project_dir must be a directory that exists"
+
+	if command not in ["rmdup-bam", "check-status", "prepare-region-features"]:
 		# validate chrom	
 		chrom: str = args.chrom
-		assert chrom in CHROMS, "chrom must be specified for stages other than rmdup-bam"
+		assert chrom in CHROMS, "chrom [1-22, X, Y] must be specified for stages other than rmdup-bam"
 
 	if command not in ["rmdup-bam", "predict", "check-status"]:
 		# validate beds_dir
 		assert args.beds_dir, "beds_dir must be specified for stages other than rmdup-bam and predict"
 		beds_dir: Path = Path(args.beds_dir)
 		assert beds_dir.is_dir(), "beds_dir must be a directory that exists"
-		bed_file: Path = get_bed_file(beds_dir, chrom)
-		assert Path(bed_file).is_file(), "beds_dir must contain a bed file for the specified chrom" 
+		if args.chrom:
+			bed_file: Path = get_bed_file(beds_dir, chrom)
+			assert bed_file.is_file(), "beds_dir must contain a bed file for the specified chrom" 
 		
 	COMMANDS[command](args)
