@@ -66,28 +66,6 @@ Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] 
 More at https://github.com/AshleyLab/scotch.
 ```
 
-Running `./scotch.sh` creates a directory, `${workingDir}/do/` and populates it with executables that perform Scotch's pipeline. 
-
-```
-
-			./scotch.sh			
-
---------------------------------------------------------
-1. BAM preparation	   
-|                          rmdup.sh
-|		      split.${c}.sh   <-- for each chrom
-V		     unclip.${c}.sh
---------------------------------------------------------
-2. Calculate features
-->             gd.${c}.sh gn.${c}.sh gr.${c}.sh
---------------------------------------------------------
-3. Compile features 
-->                   compile.${c}.sh
---------------------------------------------------------
-4. Predict
-->                   predict.${c}.sh 
-```
-
 ### Input
 Scotch accepts a Binary Alignment Mapping (BAM) file containing next-generation whole-genome sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
 
