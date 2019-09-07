@@ -21,10 +21,11 @@ java -Djava.io.tmpdir="$tmpDir" -Xmx"$mem"g -jar "$gatkJAR" \
 	-mbq 0 -mmq 0 \
 	--omitIntervalStatistics \
 	--omitLocusTable \
+	--omitPerSampleStats \
 	--includeRefNSites \
 	-L "$bed" \
 	-I "$bam" \
-	-o "$outputBase" \
+	-o /dev/stdout \
 	-R "$fastaRef" 2> "$log" | \
 grep -vi warn	`#0` | \
 tail -n +2	`#1` | \
