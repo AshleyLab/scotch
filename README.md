@@ -1,5 +1,58 @@
 # scotch
 
+## Installation 
+
+Clone this repository. And clone the repository with pre-calculated features that describe the reference genome. 
+
+```
+$ git clone https://github.com/AshleyLab/scotch.git
+```
+*TODO*: Clone the other repo with git lfs? 
+Issue: https://github.com/git-lfs/git-lfs/issues/911
+
+## Run 
+
+### Overview
+
+```
+# remove duplicate reads from input BAM
+python ~/scotch/scotch.py rmdup-bam --project_dir=~/ABC123/ --bam=~/input.bam
+
+# somewhere
+python ~/scotch/scotch.py prepare-region-features ... 
+
+# can be parallelized by chrom
+for chr in {1..22} X Y
+do
+	# split bam
+	python ~/scotch/scotch.py split-bam --project_dir=~/ABC123/ --chrom=$chr --beds=~/beds/
+	
+	# create duplicate bam but with soft clipping reverted
+	python ~/scotch/scotch.py unclip-bam --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --fasta_ref=~/GRCh37.fa
+	
+	# can calculate features in parallel	
+	for feature in {get-features-depth,get-features-nReads,get-features-read}
+	do
+		python ~/scotch/scotch.py $feature --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --fasta_ref=~/GRCh37.fa
+	done
+	
+	# compile features
+	python ~/scotch/scotch.py compile-features --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --trim_rfs_dir= TODO
+	
+	# make predictions
+	python ~/scotch/scotch.py predict -project_dir=~/ABC123/ --chrom=$chr --fasta_ref=~/GRCh37.fa
+done
+
+```
+
+### Input
+
+### Pipeline stages
+
+### Output
+
+
+
 ```
 Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]
         workingDir      absolute path to directory where Scotch should put intermediate files and results
