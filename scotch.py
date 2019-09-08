@@ -6,6 +6,9 @@ import subprocess
 import sys
 import typing
 
+# Is the split-bam stage even really necessary? 
+# Let's try removing it. 
+
 # constants
 CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
 AUX_DIR = "aux"
@@ -33,12 +36,9 @@ def get_results_dir(project_dir: Path) -> Path:
 def get_tmp_dir(project_dir: Path) -> Path:
 	return project_dir / "tmp/"
 
+# bam convenience funcs
 def get_rmdup_bam(project_dir: Path) -> Path:
 	return get_bams_dir(project_dir) / "rmdup.bam"
-
-# bam convenience funcs
-def get_split_bam(project_dir: Path, for_chrom: str) -> Path:
-	return get_bams_dir(project_dir, for_chrom) / f"{for_chrom}.bam"
 
 def get_unclip_bam(project_dir: Path, for_chrom: str) -> Path:
 	return get_bams_dir(project_dir, for_chrom) / f"{for_chrom}.unclip.bam"
@@ -93,7 +93,7 @@ def quickcheck_bam(bam: Path) -> bool:
 # check GATK version is compatible
 def check_gatk_38(gatk_jar: Path) -> bool:
 	check_cmd: List = ["java", "-jar", str(gatk_jar.resolve()), "--version"]
-	verion_info: str = subprocess.check_output(check_cmd).decode()
+	version_info: str = subprocess.check_output(check_cmd).decode()
 	print(f"GATK version info: {version_info}")
 	return version_info.startswith("3.8")
 
@@ -150,7 +150,7 @@ def check_status(args) -> None:
 	print_row(chroms_second_row)
 
 	# steps in pipeline
-	# split-bam, unclip-bam
+	# unclip-bam
 	def get_status_for_bam(bam: Path) -> str:
 		if bam.is_file() and quickcheck_bam(bam):
 			return DONE
@@ -158,9 +158,7 @@ def check_status(args) -> None:
 			return INVALID
 		else:
 			return INCOMPLETE
-	split_bam_row  = [get_status_for_bam( get_split_bam(project_dir, c)) for c in CHROMS]
 	unclip_bam_row = [get_status_for_bam(get_unclip_bam(project_dir, c)) for c in CHROMS]
-	print_row(split_bam_row, label="split-bam")
 	print_row(unclip_bam_row, label="unclip-bam")
 
 	# get-features-depth, get-features-nReads, get-features-read
@@ -207,32 +205,6 @@ def rmdup_bam(args):
 	script_name: str = "prepareBam-rmdup.sh"
 	run_script(script_name, input_bam, rmdup_bam)
 
-def split_bam(args):
-	# args we've already validated
-	chrom: str = args.chrom
-	project_dir: Path = Path(args.project_dir)
-	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
-
-	# validate results of last stage: rmdup-bam
-	rmdup_bam: Path = get_rmdup_bam(project_dir)
-	assert rmdup_bam.is_file(), f"split-bam must be run after rmdup-bam because it needs to access {rmdup_bam}"
-	assert quickcheck_bam(rmdup_bam), f"samtools quickcheck says {rmdup_bam} is invalid. Did rmdup-bam finish successfully?"
-	bams_dir: Path = get_bams_dir(project_dir)
-	assert bams_dir.is_dir(), f"split-bam must be run after rmdup-bam because it needs to access {bams_dir}"
-
-	# create chrom bam directory
-	bams_dir_for_chrom = get_bams_dir(project_dir, chrom)
-	assert not bams_dir_for_chrom.exists(), f"split-bam writes to {bams_dir_for_chrom} but that already exists, please delete or choose another project directory"
-	bams_dir_for_chrom.mkdir()
-
-	# get path to where will write split bam
-	split_bam: Path = get_split_bam(project_dir, chrom)
-	assert not split_bam.exists(), f"split-bam writes to {split_bam} but that already exists, please delete or choose another project directory"
-
-	# run pipeline script
-	script_name: str = "prepareBam-split.sh"
-	run_script(script_name, rmdup_bam, split_bam, bed_file)
-
 def unclip_bam(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -256,18 +228,20 @@ def unclip_bam(args):
 	tmp_dir: Path = get_tmp_dir(project_dir)
 	tmp_dir.mkdir(exist_ok=True)
 
-	# validate results of last stage: split-bam
-	split_bam: Path = get_split_bam(project_dir, chrom)
-	assert split_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {split_bam}: try running split-bam --chrom={chrom}"
-	assert quickcheck_bam(split_bam), f"{split_bam} is invalid: try running split-bam --chrom={chrom}"
+	# validate results of last stage: rmdup-bam
+	rmdup_bam: Path = get_rmdup_bam(project_dir)
+	assert rmdup_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {rmdup_bam}: try running rmdup-bam"
+	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam"
 
 	# get path to new bam
+	bams_dir_for_chrom = get_bams_dir(project_dir, chrom)
+	bams_dir_for_chrom.mkdir(exist_ok=True)
 	unclip_bam: Path = get_unclip_bam(project_dir, chrom)
 	assert not unclip_bam.exists(), f"unclip-bam --chrom={chrom} writes to {unclip_bam} but that already exists, please delete or stash"
 
 	# run pipeline script
 	script_name: str = "prepareBam-unclip.sh"
-	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, unclip_bam)
+	run_script(script_name, rmdup_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, unclip_bam)
 
 def get_features_depth(args):
 	# args we've already validated
@@ -292,10 +266,10 @@ def get_features_depth(args):
 	tmp_dir: Path = get_tmp_dir(project_dir)
 	tmp_dir.mkdir(exist_ok=True)
 
-	# validate results of last stage: split-bam
-	split_bam: Path = get_split_bam(project_dir, chrom)
-	assert split_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {split_bam}: try running split-bam --chrom={chrom}"
-	assert quickcheck_bam(split_bam), f"{split_bam} is invalid: try running split-bam --chrom={chrom}"
+	# validate results of last stage: rmdup-bam
+	rmdup_bam: Path = get_rmdup_bam(project_dir)
+	assert rmdup_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {rmdup_bam}: try running rmdup-bam"
+	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam"
 
 	# get path to new feature
 	get_features_dir(project_dir).mkdir(exist_ok=True)
@@ -308,7 +282,7 @@ def get_features_depth(args):
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
-	run_script(script_name, split_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz, depth_feature_stats)
+	run_script(script_name, rmdup_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz, depth_feature_stats)
 
 def get_features_nReads(args):
 	# args we've already validated
@@ -357,10 +331,10 @@ def get_features_read(args):
 	project_dir: Path = Path(args.project_dir)
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)	
 
-	# validate results of last stage: split-bam
-	split_bam: Path = get_split_bam(project_dir, chrom)
-	assert split_bam.is_file(), f"get-features-read --chrom={chrom} needs to access {split_bam}: try running split-bam --chrom={chrom}"
-	assert quickcheck_bam(split_bam), f"{split_bam} is invalid: try running split-bam --chrom={chrom}"
+	# validate results of last stage: rmdup-bam
+	rmdup_bam: Path = get_rmdup_bam(project_dir)
+	assert rmdup_bam.is_file(), f"get-features-read --chrom={chrom} needs to access {rmdup_bam}: try running rmdup-bam"
+	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam"
 
 	# get path to new feature
 	get_features_dir(project_dir).mkdir(exist_ok=True)
@@ -370,19 +344,18 @@ def get_features_read(args):
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadFeatures.sh"
-	run_script(script_name, split_bam, bed_file, read_features)
+	run_script(script_name, rmdup_bam, bed_file, read_features)
 
 def compile_features(args):
 	# args we've already validated
 	chrom: str = args.chrom
 	project_dir: Path = Path(args.project_dir)
-	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
 	# validate args specific to this stage: rfs_dir
 	assert args.trim_rfs_dir, "compile-features required trim_rfs_dir, a directory of region feature files (can be produced by prepare-region-features)"
 	trim_rfs_dir: Path = Path(args.trim_rfs_dir)
 	assert trim_rfs_dir.is_dir(), "trim_rfs_dir must be a directory that exists"
-	trim_rfs_file: Path = get_trim_rfs_file(rfs_dir, chrom)
+	trim_rfs_file: Path = get_trim_rfs_file(trim_rfs_dir, chrom)
 	assert trim_rfs_file.is_file(), f"trim_rfs_dir must contain a file for {chrom}, {trim_rfs_file}"
 
 	# prepare tmp dir
@@ -433,8 +406,7 @@ def predict(args):
 	# get output files for this stage
 	get_results_dir(project_dir).mkdir(exist_ok=True)
 	tsv_results: Path = get_tsv_results(project_dir, chrom)
-	# disabled while testing make vcf functionality
-	#assert not tsv_results.exists(), f"predict --chrom={chrom} writes to {tsv_results} but that already exists, please delete or move"
+	assert not tsv_results.exists(), f"predict --chrom={chrom} writes to {tsv_results} but that already exists, please delete or move"
 	vcf_results_stub: Path = get_vcf_results_stub(project_dir, chrom)
 	# assert actual children do not exist ?
 	#assert not vcf_results_stub.exists(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
@@ -472,7 +444,6 @@ def prepare_region_features(args):
 # map keywords to functions that execute pipeline stages
 COMMANDS = {
 	"rmdup-bam" : rmdup_bam,
-	"split-bam": split_bam,
 	"unclip-bam": unclip_bam,
 	"get-features-depth": get_features_depth,
 	"get-features-nReads": get_features_nReads,

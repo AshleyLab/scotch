@@ -293,7 +293,7 @@ if __name__ == "__main__":
 	depth_feature_gz_path = sys.argv[1]
 	nReads_feature_gz_path = sys.argv[2]
 	read_features_gz_path = sys.argv[3]
-	region_features_path = sys.argv[4]
+	trim_region_features_gz_path = sys.argv[4]
 	depth_feature_stats = sys.argv[5]
 	nReads_feature_stats = sys.argv[6]
 	out_matrix_gz_path = sys.argv[7]
@@ -313,7 +313,7 @@ if __name__ == "__main__":
 	with gzip.open(depth_feature_gz_path, "rt") as depth_feature, \
 		gzip.open(nReads_feature_gz_path, "rt") as nReads_feature, \
 		gzip.open(read_features_gz_path, "rt") as read_features, \
-		open(region_features_path) as region_features:
+		gzip.open(trim_region_features_gz_path, "rt") as region_features:
 
 		is_first_line = True
 		features_iterator = zip(get_reader(depth_feature), get_reader(nReads_feature),
@@ -327,8 +327,6 @@ if __name__ == "__main__":
 		# iterate over feature files
 		for depth_line, nReads_line, read_line, rfs_line in features_iterator:
 			
-			#print(f"depth_line: {depth_line}, nReads_line: {nReads_line}, read_line: {read_line}, rfs_line: {rfs_line}")	
-
 			# get base features from this row
 			coords: Coordinates = get_coordinates(depth_line, nReads_line, read_line, rfs_line)
 			base_feats: BaseFeats = get_base_feats(coords, depth_line, nReads_line, read_line, rfs_line)
