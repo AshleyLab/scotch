@@ -24,9 +24,6 @@ python ~/scotch/scotch.py rmdup-bam --project_dir=~/ABC123/ --bam=~/input.bam
 # can process BAM in parallel by chromosome
 for chr in {1..22} X Y
 do
-	# split bam
-	python ~/scotch/scotch.py split-bam --project_dir=~/ABC123/ --chrom=$chr --beds=~/beds/
-	
 	# create duplicate bam but with soft clipping reverted
 	python ~/scotch/scotch.py unclip-bam --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --fasta_ref=~/GRCh37.fa
 	
@@ -46,8 +43,13 @@ done
 ```
 
 ### Input
+Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome next generation sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
 
 ### Pipeline stages
+
+#### prepare-region-features
+
+
 
 ### Output
 
@@ -65,9 +67,6 @@ Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] 
         rfsDir          directory with computed region features
 More at https://github.com/AshleyLab/scotch.
 ```
-
-### Input
-Scotch accepts a Binary Alignment Mapping (BAM) file containing next-generation whole-genome sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
 
 ### Features
 Scotch’s model evaluates each position with respect to 39 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. Information on feature importance is available in the Supplementary Note (Supplementary Fig. 1, Supplementary Table 25). 
