@@ -1,15 +1,13 @@
-# scotch
+# Scotch
 
 ## Installation 
 
-Clone this repository. And clone the repository with pre-calculated features that describe the reference genome. 
+Clone this repository. And clone the [repository](https://github.com/AshleyLab/scotch-data) with pre-calculated features that describe the reference genome. 
 
 ```
 $ git clone https://github.com/AshleyLab/scotch.git
 $ git clone https://github.com/AshleyLab/scotch-data
 ```
-That's it!
-
 ## Run 
 
 ### Overview
@@ -24,7 +22,7 @@ python ~/scotch/scotch.py rmdup-bam --project_dir=~/ABC123/ --bam=~/input.bam
 # can process BAM in parallel by chromosome
 for chr in {1..22} X Y
 do
-	# create duplicate bam but with soft clipping reverted
+	# create bam with soft clipping reverted
 	python ~/scotch/scotch.py unclip-bam --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --fasta_ref=~/GRCh37.fa
 	
 	# can calculate features in parallel	
@@ -45,11 +43,24 @@ done
 ### Input
 Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome next generation sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
 
+*GRCH37*??
+
+### Common arguments
+
+* `--project_dir`
+
 ### Pipeline stages
 
-#### prepare-region-features
+#### `prepare-region-features`
+##### Required args
+* `--project_dir`
+* `--beds_dir`
+* `--all_rfs_dir`: path to directory with all region features, probably location where `https://github.com/AshleyLab/scotch-data` was cloned
+* `--output_trim_rfs_dir`: path to directory where should output trimmed region features; can be an empty directory
 
+Scotch's model relies on eight *region features*. Unlike other features that describe the input sample, these features desribe the reference genome. For example, they include GC content, uniqueness, and mappability. Since region features are the same for all samples, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). But a user might not be interested in the entire genome. So given a directory of bed files that describe the regions of interest, Scotch subsets these portions of the region features and outputs them to another directory for use later, in `compile-features`. 
 
+#### `
 
 ### Output
 
