@@ -51,9 +51,9 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 
 * `--project_dir` (exc. for prepare-region-features)
 
-### Pipeline stages
+## Pipeline stages
 
-#### `prepare-region-features`
+### `prepare-region-features`
 ##### Required args
 * `--beds_dir`
 * `--all_rfs_dir`: path to directory with all region features, probably location where `https://github.com/AshleyLab/scotch-data` was cloned
@@ -61,14 +61,14 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 
 Scotch's model relies on eight *region features*. Unlike other features that describe the input sample, these features desribe the reference genome. For example, they include GC content, uniqueness, and mappability. Since region features are the same for all samples, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). But a user might not be interested in the entire genome. So given a directory of bed files that describe the regions of interest, Scotch subsets these portions of the region features and outputs them to another directory for use later, in `compile-features`. 
 
-#### `rmdup-bam`
+### `rmdup-bam`
 ##### Required args
 * `--project_dir`
 * `--bam`: path to indexed, BWA-aligned, whole-genome, next-generation input sequencing data
 
 Scotch removes duplicate reads from the input bam with `samtools rmdup`. We found the best results with calculating our features from such a bam with duplicates removed. 
 
-#### `unclip-bam`
+### `unclip-bam`
 ##### Required args
 * `--project_dir`
 * `--chrom`
@@ -80,7 +80,7 @@ Scotch removes duplicate reads from the input bam with `samtools rmdup`. We foun
 
 Many of Scotch's features relate to soft clipping. This state of the pipeline creates, for a single chromosome, a BAM from the output of `rmdup-bam`, but with all soft clipped bases reverted. (This stage's output is used in `get-features-nReads` to calculate the coverage including soft clipping, whereas `get-features-depth` calculates coverage excludings soft clipping). 
 
-#### `get-features-depth`
+### `get-features-depth`
 ##### Required args
 * `--project_dir`
 * `--chrom`
@@ -92,7 +92,7 @@ Many of Scotch's features relate to soft clipping. This state of the pipeline cr
 
 Calculates coverage, within the specified chromosome, excluding soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `depth.feat.gz`, `depth.feat.log`, and `depth.feat.stats`. 
 
-#### `get-features-nReads`
+### `get-features-nReads`
 ##### Required args
 * `--project_dir`
 * `--chrom`
@@ -104,7 +104,7 @@ Calculates coverage, within the specified chromosome, excluding soft clipping. I
 
 Calculates coverage, within the specified chromosome, including soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `nReads.feat.gz`, `nReads.feat.log`, and `nReads.feat.stats`. 
 
-#### `get-features-read`
+### `get-features-read`
 ##### Required args
 * `--project_dir`
 * `--chrom`
@@ -114,7 +114,7 @@ Calculates coverage, within the specified chromosome, including soft clipping. I
 Calculates several features within the specified chromosome, including (per-position) mean mapping quality, mean base quality, operations described in reads' CIGAR strings, and several features describing soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `read.feats.gz`.
 
 
-#### `compile-features`
+### `compile-features`
 ##### Required args
 * `--project_dir`
 * `--chrom`
@@ -124,7 +124,7 @@ Calculates several features within the specified chromosome, including (per-posi
 Combines the results of `get-features-depth`, `get-features-nReads`, and `get-features-read`. Normalizes some features for inter-sample comparability, and computes new features based on combinations of distinct features.  In the directory `{project_dir}/features/{chrom}/`, produces `matrix.txt.gz`.
 
 
-#### `predict`
+### `predict`
 * `--project_dir`
 * `--chrom`
 * `--fasta_ref` 
