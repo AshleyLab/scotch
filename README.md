@@ -35,7 +35,7 @@ do
 	python ~/scotch/scotch.py compile-features --project_dir=~/ABC123/ --chrom=$chr --beds_dir=~/beds/ --trim_rfs_dir=~/trim_rfs/
 	
 	# make predictions
-	python ~/scotch/scotch.py predict -project_dir=~/ABC123/ --chrom=$chr --fasta_ref=~/GRCh37.fa
+	python ~/scotch/scotch.py predict --project_dir=~/ABC123/ --chrom=$chr --fasta_ref=~/GRCh37.fa
 done
 
 ```
@@ -45,39 +45,93 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 
 *GRCH37*??
 
+#### Output
+
 ### Common arguments
 
-* `--project_dir`
+* `--project_dir` (exc. for prepare-region-features)
 
 ### Pipeline stages
 
 #### `prepare-region-features`
 ##### Required args
-* `--project_dir`
 * `--beds_dir`
 * `--all_rfs_dir`: path to directory with all region features, probably location where `https://github.com/AshleyLab/scotch-data` was cloned
 * `--output_trim_rfs_dir`: path to directory where should output trimmed region features; can be an empty directory
 
 Scotch's model relies on eight *region features*. Unlike other features that describe the input sample, these features desribe the reference genome. For example, they include GC content, uniqueness, and mappability. Since region features are the same for all samples, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). But a user might not be interested in the entire genome. So given a directory of bed files that describe the regions of interest, Scotch subsets these portions of the region features and outputs them to another directory for use later, in `compile-features`. 
 
-#### `
+#### `rmdup-bam`
+##### Required args
+* `--project_dir`
+* `--bam`: path to indexed, BWA-aligned, whole-genome, next-generation input sequencing data
 
-### Output
+Scotch removes duplicate reads from the input bam with `samtools rmdup`. We found the best results with calculating our features from such a bam with duplicates removed. 
+
+#### `unclip-bam`
+##### Required args
+* `--project_dir`
+* `--chrom`
+* `--beds_dir`
+* `--fasta_ref`
+##### Optional args
+* `--gatk_jar` (default `.../aux/gatk-3.8.jar`): Scotch requires GATK 3.8 (it uses commands that have not yet been ported over to GATK 4.0) and is shipped with a version of this, but if you'd like to use your own, the path to the `jar` can be specified here
+* `--gatk_mem` (default: `5`): the amount of memory, in GB, to run GATK with
+
+Many of Scotch's features relate to soft clipping. This state of the pipeline creates, for a single chromosome, a BAM from the output of `rmdup-bam`, but with all soft clipped bases reverted. (This stage's output is used in `get-features-nReads` to calculate the coverage including soft clipping, whereas `get-features-depth` calculates coverage excludings soft clipping). 
+
+#### `get-features-depth`
+##### Required args
+* `--project_dir`
+* `--chrom`
+* `--beds_dir`
+* `--fasta_ref` 
+##### Optional args
+* `--gatk_jar` (default `.../aux/gatk-3.8.jar`)
+* `--gatk_mem` (default: `5`)
+
+Calculates coverage, within the specified chromosome, excluding soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `depth.feat.gz`, `depth.feat.log`, and `depth.feat.stats`. 
+
+#### `get-features-nReads`
+##### Required args
+* `--project_dir`
+* `--chrom`
+* `--beds_dir`
+* `--fasta_ref` 
+##### Optional args
+* `--gatk_jar` (default `.../aux/gatk-3.8.jar`)
+* `--gatk_mem` (default: `5`)
+
+Calculates coverage, within the specified chromosome, including soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `nReads.feat.gz`, `nReads.feat.log`, and `nReads.feat.stats`. 
+
+#### `get-features-read`
+##### Required args
+* `--project_dir`
+* `--chrom`
+* `--beds_dir`
+* `--fasta_ref` 
+
+Calculates several features within the specified chromosome, including (per-position) mean mapping quality, mean base quality, operations described in reads' CIGAR strings, and several features describing soft clipping. In the directory `{project_dir}/features/{chrom}/`, produces `read.feats.gz`.
 
 
+#### `compile-features`
+##### Required args
+* `--project_dir`
+* `--chrom`
+* `--beds_dir`
+* `--trim_rfs_dir`: path to directory with trimmed region features, produced in `prepare-region-features` as `--output_trim_rfs_dir`
 
-```
-Usage /path/to/scotch.sh [workingDir] [bedsDir] [bam] [id] [fastaRef] [gatkJAR] [rfsDir]
-        workingDir      absolute path to directory where Scotch should put intermediate files and results
-                        *run this command from within workingDir*
-        bedsDir         directory with .bed files listing the regions Scotch should examine
-        bam             BAM file for which Scotch should call indels
-        id              a name for this sample
-        fastaRef        FASTA reference for genome build
-        gatkJAR         Genome Analysis Toolkit JAR file
-        rfsDir          directory with computed region features
-More at https://github.com/AshleyLab/scotch.
-```
+Combines the results of `get-features-depth`, `get-features-nReads`, and `get-features-read`. Normalizes some features for inter-sample comparability, and computes new features based on combinations of distinct features.  In the directory `{project_dir}/features/{chrom}/`, produces `matrix.txt.gz`.
+
+
+#### `predict`
+* `--project_dir`
+* `--chrom`
+* `--fasta_ref` 
+
+From the feature matrix, makes predictions against Scotch's random forest model. 
+
+## More
 
 ### Features
 Scotch’s model evaluates each position with respect to 39 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. Information on feature importance is available in the Supplementary Note (Supplementary Fig. 1, Supplementary Table 25). 
