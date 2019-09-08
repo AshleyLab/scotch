@@ -59,7 +59,7 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 * `--all_rfs_dir`: path to directory with all region features, probably location where `https://github.com/AshleyLab/scotch-data` was cloned
 * `--output_trim_rfs_dir`: path to directory where should output trimmed region features; can be an empty directory
 
-Scotch's model relies on eight *region features*. Unlike other features that describe the input sample, these features desribe the reference genome. For example, they include GC content, uniqueness, and mappability. Since region features are the same for all samples, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). But a user might not be interested in the entire genome. So given a directory of bed files that describe the regions of interest, Scotch subsets these portions of the region features and outputs them to another directory for use later, in `compile-features`. 
+Scotch's model relies on eight *region features* that describe the reference genome. For convenience, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). Run this command with the bed files that describe your regions of interest to obtain the corresponding region features. 
 
 ### `rmdup-bam`
 ##### Required args
