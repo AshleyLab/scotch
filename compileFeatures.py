@@ -113,7 +113,6 @@ def get_coordinates(depth_line: List, nReads_line: List, read_line: List, rfs_li
 # compute base feats from feature files
 def get_base_feats(coords: Coordinates, depth_line: List, nReads_line: List, read_line: List, rfs_line: List) -> BaseFeats:
 
-	# need str, int wrapper?	
 	return BaseFeats(
 		coords=coords,
 		depth=float(depth_line[2]),
