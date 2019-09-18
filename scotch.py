@@ -98,10 +98,10 @@ def check_gatk_38(gatk_jar: Path) -> bool:
 
 # *** Run a script *** 
 def run_script(script_name, *args):
-	scotch_dir: Path = Path(__file__).parent
+	scotch_dir: Path = Path(__file__).absolute().parent
 	script: Path = scotch_dir / script_name
 	str_args = [str(a) for a in args]
-	print(f"running {script} with {str_args}")
+	print(f"Running {script} with {str_args}")
 
 	if script.suffix != ".py":
 		subprocess.call([script] + str_args)
@@ -375,8 +375,7 @@ COMMANDS = {
 	"get-features-read": get_features_read,
 	"compile-features": compile_features,
 	"predict": predict,
-	"prepare-region-features": prepare_region_features,
-	"check-status": check_status
+	"prepare-region-features": prepare_region_features
 }
 
 if __name__ == "__main__":
