@@ -6,16 +6,14 @@ import subprocess
 import sys
 import typing
 
-# Is the split-bam stage even really necessary? 
-# Let's try removing it. 
-
-# constants
+# Constants
 CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
 AUX_DIR = "aux"
 MODEL_NAME = "scotch-r1-wgs-model.RData"
 GATK_JAR_NAME = "gatk-3.8.jar"
 
-# paths used by multiple stages
+# *** Convenience functions provide paths to files used in the pipeline ***
+# BAM paths
 def get_bams_dir(project_dir: Path, for_chrom: str = None) -> Path:
 	if for_chrom:
 		assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}" 
@@ -23,6 +21,13 @@ def get_bams_dir(project_dir: Path, for_chrom: str = None) -> Path:
 	else:
 		return project_dir / "bams/"
 
+def get_rmdup_bam(project_dir: Path) -> Path:
+	return get_bams_dir(project_dir) / "rmdup.bam"
+
+def get_unclip_bam(project_dir: Path, for_chrom: str) -> Path:
+	return get_bams_dir(project_dir, for_chrom) / f"{for_chrom}.unclip.bam"
+
+# Feeature paths
 def get_features_dir(project_dir: Path, for_chrom: str = None) -> Path:
 	if for_chrom:
 		assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}" 
@@ -30,20 +35,6 @@ def get_features_dir(project_dir: Path, for_chrom: str = None) -> Path:
 	else:
 		return project_dir / "features/"
 
-def get_results_dir(project_dir: Path) -> Path:
-	return project_dir / "results/"
-
-def get_tmp_dir(project_dir: Path) -> Path:
-	return project_dir / "tmp/"
-
-# bam convenience funcs
-def get_rmdup_bam(project_dir: Path) -> Path:
-	return get_bams_dir(project_dir) / "rmdup.bam"
-
-def get_unclip_bam(project_dir: Path, for_chrom: str) -> Path:
-	return get_bams_dir(project_dir, for_chrom) / f"{for_chrom}.unclip.bam"
-
-# feature convenience funcs
 def get_depth_feature_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "depth.feat.gz"
 
@@ -62,7 +53,10 @@ def get_read_features_gz(project_dir: Path, for_chrom: str) -> Path:
 def get_feature_matrix_gz(project_dir: Path, for_chrom: str) -> Path:
 	return get_features_dir(project_dir, for_chrom) / "matrix.txt.gz"
 
-# results convenience funcs
+# Results paths
+def get_results_dir(project_dir: Path) -> Path:
+	return project_dir / "results/"
+
 def get_tsv_results(project_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
 	return get_results_dir(project_dir) / f"results.{for_chrom}.tsv"
@@ -71,12 +65,7 @@ def get_vcf_results_stub(project_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
 	return get_results_dir(project_dir) / f"results.{for_chrom}"
 
-# bed convenience funcs
-def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
-	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}" 
-	return beds_dir / f"{for_chrom}.bed"
-
-# rfs convenience func
+# Region feature paths
 def get_all_rfs_file(all_rfs_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
 	return all_rfs_dir / f"{for_chrom}.rfs.gz"
@@ -85,104 +74,68 @@ def get_trim_rfs_file(trim_rfs_dir: Path, for_chrom: str) -> Path:
 	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}"
 	return trim_rfs_dir / f"{for_chrom}.rfs.trim.gz"
 
-# check bam is valid
+# Tmp dir path
+def get_tmp_dir(project_dir: Path) -> Path:
+	return project_dir / "tmp/"
+
+# BED paths
+def get_bed_file(beds_dir: Path, for_chrom: str) -> Path:
+	assert for_chrom in CHROMS, f"Unrecognized chrom {for_chrom}" 
+	return beds_dir / f"{for_chrom}.bed"
+
+# *** Validation functions sanity check files and arguments ***
+# Check a bam is valid
 def quickcheck_bam(bam: Path) -> bool:
 	bam_path: str = str(bam.resolve())
 	return subprocess.call(["samtools", "quickcheck", bam_path]) == 0
 
-# check GATK version is compatible
+# Check GATK JAR is version 3.8
 def check_gatk_38(gatk_jar: Path) -> bool:
 	check_cmd: List = ["java", "-jar", str(gatk_jar.resolve()), "--version"]
 	version_info: str = subprocess.check_output(check_cmd).decode()
 	print(f"GATK version info: {version_info}")
 	return version_info.startswith("3.8")
 
-# run a script
+# *** Run a script *** 
 def run_script(script_name, *args):
 	scotch_dir: Path = Path(__file__).parent
 	script: Path = scotch_dir / script_name
 	str_args = [str(a) for a in args]
 	print(f"running {script} with {str_args}")
 
-	# TODO; make this nicer
 	if script.suffix != ".py":
 		subprocess.call([script] + str_args)
 	else:
 		subprocess.call(["python", script] + str_args)
 
-# prints graphical report of status
-def check_status(args) -> None: 
-	# looks kinda like
-	# 
-	#   |   |   |   |   |   |   |   |   |   | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 |   |   
-	# 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | 1 | 2 | X | Y
-
-	SEP: str = "|"
-	DONE: str = "#" # stages of the pipeline completed ostensibly correctly
-	INVALID: str = "?" # stages with clear issues
-	INCOMPLETE: str = " " # stages not completed
+# *** Scotch pipeline functions *** 
+# Subset all region features for just ones specified by BED
+def prepare_region_features(args):
+	# args we've already validated
+	beds_dir: Path = Path(args.beds_dir)
 	
-	MAX_LABEL_LEN: int = 8
-	def print_row(row: [str], label: str = None) -> None:
-		padded_items = [f" {x} " for x in row]
-		joined_items = SEP.join(padded_items)
-
-		trimmed_label: str = (label or "")[:MAX_LABEL_LEN]
-		formatted_label: str = f"{trimmed_label:8}"
-		print(formatted_label + joined_items)
-
-	# not per chrom
-	project_dir: Path = Path(args.project_dir)
-	rmdup_bam: Path = get_rmdup_bam(project_dir)
-	if rmdup_bam.is_file() and quickcheck_bam(rmdup_bam):	
-		rmdup_desc = "done"
-	elif rmdup_bam.is_file():
-		rmdup_desc = "invalid"
-	else:
-		rmdup_desc: "incomplete"
-	rmdup_bam_row = f"     rmdup-bam: {rmdup_desc}"
-	print(rmdup_bam_row)
+	# validate args specific to this stage: beds_dir, all_rfs_dir, output_trim_rfs_dir
+	assert args.all_rfs_dir, "prepare-region-features requires all_rfs_dir (available at https://github.com/AshleyLab/scotch-data)"
+	all_rfs_dir: Path = Path(args.all_rfs_dir)
+	assert all_rfs_dir.is_dir(), "all_rfs_dir must be a directory that exists"
 	
-	# chrom headers
-	chroms_first_row  = [(c[0] if len(c) == 2 else " ") for c in CHROMS]
-	chroms_second_row = [(c[1] if len(c) == 2 else c)  for c in CHROMS]
-	print_row(chroms_first_row)
-	print_row(chroms_second_row)
+	assert args.output_trim_rfs_dir, "prepare-region-features requires output_trim_rfs_dir (can be an empty directory) to know where to write output"
+	output_trim_rfs_dir: Path = Path(args.output_trim_rfs_dir)
+	assert output_trim_rfs_dir.is_dir(), "output_trim_rfs_dir must be a directory that exists"
+		
+	for chrom in CHROMS:
+		bed_file: Path = get_bed_file(beds_dir, chrom)
+		assert bed_file.is_file(), f"beds_dir must contain a file for {chrom}, {bed_file}"
+		all_rfs_file = get_all_rfs_file(all_rfs_dir, chrom)
+		assert all_rfs_file.is_file(), f"all_rfs_dir must contain a file for {chrom}, {all_rfs_file}"
+		output_trim_rfs_file = get_trim_rfs_file(output_trim_rfs_dir, chrom)
+		assert not output_trim_rfs_file.exists(), f"prepare-region-features writes to {output_trim_rfs_file} but that already exists, please delete or move"
 
-	# steps in pipeline
-	# unclip-bam
-	def get_status_for_bam(bam: Path) -> str:
-		if bam.is_file() and quickcheck_bam(bam):
-			return DONE
-		elif bam.is_file():
-			return INVALID
-		else:
-			return INCOMPLETE
-	unclip_bam_row = [get_status_for_bam(get_unclip_bam(project_dir, c)) for c in CHROMS]
-	print_row(unclip_bam_row, label="unclip-bam")
+	# run pipeline script
+	script_name: str= "prepareRegionFeatures.sh"
+	run_script(script_name, beds_dir, all_rfs_dir, output_trim_rfs_dir)
 
-	# get-features-depth, get-features-nReads, get-features-read
-	def get_status_for_feature(feature: Path) -> str:
-		if feature.is_file():
-			return DONE
-		else:
-			return INCOMPLETE
-	get_features_depth_row  = [get_status_for_feature( get_depth_feature_gz(project_dir, c)) for c in CHROMS]
-	get_features_nReads_row = [get_status_for_feature(get_nReads_feature_gz(project_dir, c)) for c in CHROMS]
-	get_features_read_row   = [get_status_for_feature( get_read_features_gz(project_dir, c)) for c in CHROMS]
-
-	# compile-features
-	def get_status_for_matrix(matrix: Path) -> str:
-		if matrix.is_file():
-			return DONE
-		else:
-			return INCOMPLETE
-	compile_feature_row = [get_status_for_matrix(get_feature_matrix_gz(project_dir, c)) for c in CHROMS]
-
-	# predict
-	
-
-# SCOTCH PIPELINE
+# Remove duplicate reads from a BAM 
 def rmdup_bam(args):
 	# args we've already validated
 	project_dir: Path = Path(args.project_dir)
@@ -192,12 +145,9 @@ def rmdup_bam(args):
 	input_bam: Path = Path(args.bam)
 	assert input_bam.is_file(), "bam must be a file that exists"
 
-	# make bams dir
+	# get path to output, rmdup bam
 	bams_dir: Path = get_bams_dir(project_dir)
-	assert not bams_dir.exists(), f"rmdup-bam writes to {bams_dir} but that already exists, please delete or choose another project directory"
-	bams_dir.mkdir()
-		
-	# rmdup args.bam and put the result 
+	bams_dir.mkdir(exist_ok=True)
 	rmdup_bam: Path = get_rmdup_bam(project_dir)
 	assert not rmdup_bam.exists(), f"rmdup-bam writes to {rmdup_bam} but that already exists, please delete or choose another project directory"
 	
@@ -205,6 +155,7 @@ def rmdup_bam(args):
 	script_name: str = "prepareBam-rmdup.sh"
 	run_script(script_name, input_bam, rmdup_bam)
 
+# Create a BAM with soft-clipping reverted
 def unclip_bam(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -231,18 +182,19 @@ def unclip_bam(args):
 	# validate results of last stage: rmdup-bam
 	rmdup_bam: Path = get_rmdup_bam(project_dir)
 	assert rmdup_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {rmdup_bam}: try running rmdup-bam"
-	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam"
+	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam again"
 
-	# get path to new bam
+	# get path to output, bam with soft clipping reverted
 	bams_dir_for_chrom = get_bams_dir(project_dir, chrom)
 	bams_dir_for_chrom.mkdir(exist_ok=True)
 	unclip_bam: Path = get_unclip_bam(project_dir, chrom)
-	assert not unclip_bam.exists(), f"unclip-bam --chrom={chrom} writes to {unclip_bam} but that already exists, please delete or stash"
+	assert not unclip_bam.exists(), f"unclip-bam --chrom={chrom} writes to {unclip_bam} but that already exists, please delete or move'"
 
 	# run pipeline script
 	script_name: str = "prepareBam-unclip.sh"
 	run_script(script_name, rmdup_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, unclip_bam)
 
+# Traverse portion of BAM from rmdup-bam and calculate coverage (excludes soft clipping)
 def get_features_depth(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -250,11 +202,11 @@ def get_features_depth(args):
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
 	# validate args specific to this stage: fasta_ref, gatk_jar, gatk_mem
-	assert args.fasta_ref, "fasta_ref must be specified for unclip-bam stage"
+	assert args.fasta_ref, "fasta_ref must be specified for get-features-depth stage"
 	fasta_ref: Path = Path(args.fasta_ref)
 	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
 
-	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
+	assert args.gatk_jar, "gatk_jar must be specified for get-features-depth stage"
 	gatk_jar: Path = Path(args.gatk_jar)
 	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
 	assert check_gatk_38(gatk_jar), "Scotch requires GATK 3.8"
@@ -269,21 +221,20 @@ def get_features_depth(args):
 	# validate results of last stage: rmdup-bam
 	rmdup_bam: Path = get_rmdup_bam(project_dir)
 	assert rmdup_bam.is_file(), f"unclip-bam --chrom={chrom} needs to access {rmdup_bam}: try running rmdup-bam"
-	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam"
+	assert quickcheck_bam(rmdup_bam), f"{rmdup_bam} is invalid: try running rmdup-bam again"
 
-	# get path to new feature
+	# get path to new feature and stats
 	get_features_dir(project_dir).mkdir(exist_ok=True)
 	get_features_dir(project_dir, chrom).mkdir(exist_ok=True)
 	depth_feature_gz: Path = get_depth_feature_gz(project_dir, chrom)
 	assert not depth_feature_gz.exists(), f"get-features-depth --chrom={chrom} writes to {depth_feature_gz} but that already exists, please delete or move"
-
-	# path to feature stats
 	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)	
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
 	run_script(script_name, rmdup_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, depth_feature_gz, depth_feature_stats)
 
+# Traverse portion of BAM from unclip-bam and calculate coverage (includes soft clipping)
 def get_features_nReads(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -291,11 +242,11 @@ def get_features_nReads(args):
 	bed_file: Path = get_bed_file(Path(args.beds_dir), chrom)
 
 	# validate args specific to this stage: fasta_ref, gatk_jar, gatk_mem
-	assert args.fasta_ref, "fasta_ref must be specified for unclip-bam stage"
+	assert args.fasta_ref, "fasta_ref must be specified for get-features-nReads stage"
 	fasta_ref: Path = Path(args.fasta_ref)
 	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
 
-	assert args.gatk_jar, "gatk_jar must be specified for unclip-bam stage"
+	assert args.gatk_jar, "gatk_jar must be specified for get-features-nReads stage"
 	gatk_jar: Path = Path(args.gatk_jar)
 	assert gatk_jar.is_file(), "gatk_jar must be a file that exists"
 	assert check_gatk_38(gatk_jar), "Scotch requires GATK 3.8"
@@ -310,21 +261,20 @@ def get_features_nReads(args):
 	# validate restuls of last stage: unclip-bam
 	unclip_bam: Path = get_unclip_bam(project_dir, chrom)
 	assert unclip_bam.is_file(), f"get-features-nReads --chrom={chrom} needs to access {unclip_bam}: try running unclip-bam --chrom={chrom}"
-	assert quickcheck_bam(unclip_bam), f"{unclip_bam} is invalid: try running unclip-bam --chrom={chrom}"
+	assert quickcheck_bam(unclip_bam), f"{unclip_bam} is invalid: try running unclip-bam again"
 	
-	# get path to new feature
+	# get path to new feature and stats
 	get_features_dir(project_dir).mkdir(exist_ok=True)
 	get_features_dir(project_dir, chrom).mkdir(exist_ok=True)
 	nReads_feature_gz: Path = get_nReads_feature_gz(project_dir, chrom)
 	assert not nReads_feature_gz.exists(), f"get-features-nReads --chrom={chrom} writes to {nReads_feature_gz} but that already exists, please delete or move"
-
-	# path to feature stats
 	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)
 
 	# run pipeline script
 	script_name: str = "getFeatures-getReadCount.sh"
 	run_script(script_name, unclip_bam, bed_file, fasta_ref, gatk_jar, tmp_dir, gatk_mem, nReads_feature_gz, nReads_feature_stats)
 
+# Traverse portion of BAM from rmdup-bam and calculate several features from reads
 def get_features_read(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -346,6 +296,7 @@ def get_features_read(args):
 	script_name: str = "getFeatures-getReadFeatures.sh"
 	run_script(script_name, rmdup_bam, bed_file, read_features)
 
+# Compile results from get-features-depth, get-features-nReads, and get-features-read
 def compile_features(args):
 	# args we've already validated
 	chrom: str = args.chrom
@@ -365,20 +316,20 @@ def compile_features(args):
 	# validate input from previous stage: get-features-depth
 	depth_feature: Path = get_depth_feature_gz(project_dir, chrom)
 	assert depth_feature.is_file(), f"compile-features --chrom={chrom} needs access to {depth_feature}: try running get-features-depth --chrom={chrom}"
+	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)
+	assert depth_feature_stats.is_file(), "compile-features requires stats file {depth_feature_stats}, which does not exist: did get-features-depth finish?"
 
 	# validate input from previous stage: get-features-nReads
 	nReads_feature: Path = get_nReads_feature_gz(project_dir, chrom)
 	assert nReads_feature.is_file(), f"compile-features --chrom={chrom} needs access to {nReads_feature}: try running get-features-nReads --chrom={chrom}"
+	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)	
+	assert nReads_feature_stats.is_file(), "compile-features requires stats file {nReads_feature_stats}, which does not exist: did get-features-nReads finish?"
 
 	# validate input from previous stage: getfeatures-read
 	read_features: Path = get_read_features_gz(project_dir, chrom)
 	assert read_features.is_file(), f"compile-features --chrom={chrom} needs access to {read_features}: try running get-features-read --chrom={chrom}"
 
-	# TODO: assert exist and n loci processed match
-	depth_feature_stats: Path = get_depth_feature_stats(project_dir, chrom)
-	nReads_feature_stats: Path = get_nReads_feature_stats(project_dir, chrom)	
-
-	# get path to feature matrix
+	# get path to output, feature matrix
 	features_dir: Path = get_features_dir(project_dir, chrom)
 	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
 	assert not feature_matrix.exists(), f"compile-features --chrom={chrom} writes to {feature_matrix} but that already exists, please delete or move"
@@ -387,14 +338,13 @@ def compile_features(args):
 	script_name: str = "compileFeatures.py"
 	run_script(script_name, depth_feature, nReads_feature, read_features, trim_rfs_file, depth_feature_stats, nReads_feature_stats, feature_matrix)
 
+# Obtain results from Scotch random forest model 
 def predict(args):
 	# args we've already validated
 	chrom: str = args.chrom
 	project_dir: Path = Path(args.project_dir)
 
-	model_path: Path = Path(__file__).parent / AUX_DIR / MODEL_NAME
-
-	# validate args specific to this stage: model_path, fasta_ref
+	# validate args specific to this stage: fasta_ref
 	assert args.fasta_ref, "fasta_ref must be specified for predict"
 	fasta_ref: Path = Path(args.fasta_ref)
 	assert fasta_ref.is_file(), "fasta_ref must be a file that exists"
@@ -403,43 +353,18 @@ def predict(args):
 	feature_matrix: Path = get_feature_matrix_gz(project_dir, chrom)
 	assert feature_matrix.is_file(), "predict --chrom=chrom needs access to {feature_matrix}: try running compile-features --chrom={chrom}"
 
-	# get output files for this stage
+	# get output path to output, TSV results, and VCF results stub
 	get_results_dir(project_dir).mkdir(exist_ok=True)
 	tsv_results: Path = get_tsv_results(project_dir, chrom)
 	assert not tsv_results.exists(), f"predict --chrom={chrom} writes to {tsv_results} but that already exists, please delete or move"
 	vcf_results_stub: Path = get_vcf_results_stub(project_dir, chrom)
-	# assert actual children do not exist ?
-	#assert not vcf_results_stub.exists(), f"predict --chrom={chrom} writes to {vcf_results} but that already exists, please delete or move"
+
+	# get path to model 
+	model_path: Path = Path(__file__).parent / AUX_DIR / MODEL_NAME
 
 	# run pipeline script
 	script_name: str = "doPredict.sh"
 	run_script(script_name, feature_matrix, tsv_results, model_path, fasta_ref, vcf_results_stub)
-
-def prepare_region_features(args):
-	# args we've already validated
-	beds_dir: Path = Path(args.beds_dir)
-	
-	# validate args specific to this stage: beds_dir, all_rfs_dir, output_trim_rfs_dir
-	assert args.all_rfs_dir, "prepare-region-features requires all_rfs_dir (available at https://github.com/AshleyLab/scotch-data)"
-	all_rfs_dir: Path = Path(args.all_rfs_dir)
-	assert all_rfs_dir.is_dir(), "all_rfs_dir must be a directory that exists"
-	
-	assert args.output_trim_rfs_dir, "prepare-region-features requires output_trim_rfs_dir (can be an empty directory) to know where to write output"
-	output_trim_rfs_dir: Path = Path(args.output_trim_rfs_dir)
-	assert output_trim_rfs_dir.is_dir(), "output_trim_rfs_dir must be a directory that exists"
-		
-	for chrom in CHROMS:
-		bed_file: Path = get_bed_file(beds_dir, chrom)
-		assert bed_file.is_file(), f"beds_dir must contain a file for {chrom}, {bed_file}"
-		all_rfs_file = get_all_rfs_file(all_rfs_dir, chrom)
-		assert all_rfs_file.is_file(), f"all_rfs_dir must contain a file for {chrom}, {all_rfs_file}"
-		output_trim_rfs_file = get_trim_rfs_file(output_trim_rfs_dir, chrom)
-		assert not output_trim_rfs_file.exists(), f"prepare-region-features writes to {output_trim_rfs_file} but that already exists, please delete or move"
-
-	# run pipeline script
-	script_name: str= "prepareRegionFeatures.sh"
-	run_script(script_name, beds_dir, all_rfs_dir, output_trim_rfs_dir)
-
 
 # map keywords to functions that execute pipeline stages
 COMMANDS = {
