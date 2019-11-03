@@ -97,7 +97,7 @@ def write_variant(writers: List[Any], chrom: str, pos: int, ref: str, alt: str, 
 		writer.writerow(variant_row)
 
 # process variant, writing to VCFs
-def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> None:
+def process_variant(variant: List[str], writer: Any, fasta: Any) -> None:
 
 	# unpack fields
 	[chrom, raw_unshifted_pos, pred_type, prob_1, prob_2, prob_3, prob_4, prob_5] = variant
@@ -111,34 +111,14 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 	shifted_pos_ref: str = get_nucs(fasta, chrom, shifted_pos)
 
 	# write results to standard vcf
-	results_writers = [writers["results"]]
 	if pred_type == "dOne": 
 		# base at shifted_pos is deleted, base at (shifted_pos - 1) is retained
 		ref: str = get_nucs(fasta, chrom, shifted_pos - 1, shifted_pos + 1)
 		alt: str = get_nucs(fasta, chrom, shifted_pos - 1)
-		write_variant(results_writers, chrom, shifted_pos - 1, ref, alt, info, GT)
+		write_variant(writer, chrom, shifted_pos - 1, ref, alt, info, GT)
 	else:
 		alt: str = f"<{pred_type.upper()}>"
-		write_variant(results_writers, chrom, shifted_pos, shifted_pos_ref, alt, info, GT)
-
-	# write encoded results to encoded vcfs
-	encode_all_writer = [writers["encode_all"]]
-	if pred_type == "dOne":
-		del_L_pos: int = shifted_pos
-		del_L_ref: str = shifted_pos_ref
-		del_L_alt: str = get_alt_for_ref(del_L_ref)
-		del_L_writers = encode_all_writer + [writers["encode_del_L"]]
-		write_variant(del_L_writers, chrom, del_L_pos, del_L_ref, del_L_alt, info, ENCODE_GT)
-
-		del_R_pos: int = shifted_pos + 1
-		del_R_ref: str = get_nucs(fasta, chrom, del_R_pos)
-		del_R_alt: str = get_alt_for_ref(del_R_ref)
-		del_R_writers = encode_all_writer + [writers["encode_del_R"]]
-		write_variant(del_R_writers, chrom, del_R_pos, del_R_ref, del_R_alt, info, ENCODE_GT)
-	else:
-		alt: str = get_alt_for_ref(shifted_pos_ref)
-		writers = encode_all_writer + [writers[f"encode_{pred_type}"]]
-		write_variant(writers, chrom, shifted_pos, shifted_pos_ref, alt, info, ENCODE_GT)
+		write_variant(writer, chrom, shifted_pos, shifted_pos_ref, alt, info, GT)
 
 if __name__ == "__main__":
 
@@ -152,33 +132,20 @@ if __name__ == "__main__":
 
 	# set up output
 	results_vcf = open(f"{vcf_results_stub}.vcf", "w")
-	encoded_del_L_results_vcf = open(f"{vcf_results_stub}.encode_del_L.vcf", "w")
-	encoded_del_R_results_vcf = open(f"{vcf_results_stub}.encode_del_R.vcf", "w")
-	encoded_ins_results_vcf = open(f"{vcf_results_stub}.encode_ins.vcf", "w")
-	encoded_all_results_vcf = open(f"{vcf_results_stub}.encode_all.vcf", "w")
+	writer = csv.writer(results_vcf, delimiter=OUTPUT_DELIMITER, quoting=csv.QUOTE_NONE, quotechar="")
 
-	def writer_for_vcf(vcf: Any) -> Any:
-		return csv.writer(vcf, delimiter=OUTPUT_DELIMITER, quoting=csv.QUOTE_NONE, quotechar="")
-	
-	writers = {
-		"results": writer_for_vcf(results_vcf),
-		"encode_del_L": writer_for_vcf(encoded_del_L_results_vcf),
-		"encode_del_R": writer_for_vcf(encoded_del_R_results_vcf),
-		"encode_ins": writer_for_vcf(encoded_ins_results_vcf),
-		"encode_all": writer_for_vcf(encoded_all_results_vcf),
-	}
-	
 	# write VCF headers to output files
 	chrom_lengths: Dict[str, int] = get_chrom_lengths(fasta)
-	for _, writer in writers.items():
-		write_header(writer, chrom_lengths)
+	write_header(writer, chrom_lengths)
 
 	# process variants
 	with open(tsv_results_path, "r") as t: 
 		for variant in csv.reader(t, delimiter="\t"):
-			process_variant(variant, writers, fasta)
+			process_variant(variant, writer, fasta)
 
 	# close output files
+	results_vcf.close()
 	for vcf in [results_vcf, encoded_del_L_results_vcf, encoded_del_R_results_vcf, encoded_ins_results_vcf, encoded_all_results_vcf]:
 		vcf.close()
 	
+	# run_script("encode.py")

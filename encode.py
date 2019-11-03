@@ -12,6 +12,7 @@ import pysam
 import textwrap
 from typing import Any, Dict, List
 import typing
+import subprocess
 import sys
 
 # constants
@@ -90,9 +91,9 @@ def get_alt_for_ref(ref: str) -> str:
 		return "A"
 
 # write a variant with given fields to a list of writers
-def write_variant(writers: List[Any], chrom: str, pos: int) -> None:
+def write_variant(fasta: Any, writers: List[Any], chrom: str, pos: int) -> None:
 
-	ref_nuc: str = get_nucs(ref, chrom, pos)
+	ref_nuc: str = get_nucs(fasta, chrom, pos)
 	alt_nuc: str = get_alt_for_ref(ref_nuc)
 	fields = [chrom, pos, ID, ref_nuc, alt_nuc, QUAL, FILTER, INFO, FORMAT, GT]
 
@@ -103,12 +104,12 @@ def write_variant(writers: List[Any], chrom: str, pos: int) -> None:
 def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> None:
 
 	# unpack fields
-	[chrom, str_pos, rsid, full_ref, alt_field, qual, filter_field, info, format_field, sample] = variant
+	[chrom, str_pos, rsid, ref, alt_field, qual, filter_field, info, format_field, sample] = variant
 	pos = int(str_pos)
 
 	extra_fields = [info, qual, filter_field, info, format_field, sample]
 	
-	for alt in alts.split(","):
+	for alt in alt_field.split(","):
 	
 		# check whether indel
 		INS_TAG = "<INS>"
@@ -124,33 +125,33 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 			
 				ins_writers = writers["ins"]
 				ins_pos = pos
-				write_variant(ins_writers, chrom, pos=ins_pos)
+				write_variant(fasta, ins_writers, chrom, pos=ins_pos)
 
 			elif (alt == DEL_L_TAG):
 			
 				del_L_writers = writers["del_L"]
 				del_L_pos = pos + 1
-				write_variant(del_L_writers, chrom=chrom, pos=del_L_pos)
+				write_variant(fasta, del_L_writers, chrom=chrom, pos=del_L_pos)
 
 			elif (alt == DEL_R_TAG):
 	
 				del_R_writers = writers["del_R"]
 				del_R_pos = pos
-				write_variant(deL_R_writers, chrom-chrom, pos=del_R_pos)
+				write_variant(fasta, deL_R_writers, chrom-chrom, pos=del_R_pos)
 
 			elif (alt == DEL_TAG): # Pindel deletion
 
 				# DEL_L
 				del_L_writers = writers["del_L"]
 				del_L_pos = pos + 1
-				write_variant(deL_L_writers, chrom=chrom, pos=del_L_pos)
+				write_variant(fasta, deL_L_writers, chrom=chrom, pos=del_L_pos)
 
 				# DEL_R
 				del_R_writers = writers["del_R"] 
 				# get endpoint from END tag in INFO
 				end_tag = info.split(";")[0]
 				del_R_pos = int(end_tag.split("=")[1])
-				write_variant(del_R_writers, chrom=chrom, pos=del_R_pos)
+				write_variant(fasta, del_R_writers, chrom=chrom, pos=del_R_pos)
 	
 		else:
 			
@@ -164,19 +165,19 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 
 				ins_writers = writers["ins"]
 				ins_pos = pos
-				write_variant(ins_writers, chrom=chrom, pos=ins_pos)
+				write_variant(fasta, ins_writers, chrom=chrom, pos=ins_pos)
 
 			elif (length_diff < 0): # deletion
 	
 				# DEL_L
 				del_L_writers = writers["del_L"]
 				del_L_pos = pos + 1
-				write_variant(del_L_writers, chrom=chrom, pos=del_L_pos)
+				write_variant(fasta, del_L_writers, chrom=chrom, pos=del_L_pos)
 
 				# DEL_R
 				del_R_writers = writers["del_R"]
-				deL_R_pos = pos - length_diff
-				write_variant(del_R_writers, chrom=chrom, pos=del_R_pos)
+				del_R_pos = pos - length_diff
+				write_variant(fasta, del_R_writers, chrom=chrom, pos=del_R_pos)
 
 # sort numerically by position
 def sort_output(output_tsv, sorted_output_tsv) -> None:
@@ -198,9 +199,9 @@ def sort_output(output_tsv, sorted_output_tsv) -> None:
 if __name__ == "__main__":
 
 	# parse args
-	vcf_results = sys.argv[1]
-	fasta_path = sys.argv[2]
-	vcf_results_stub = sys.argv[3]
+	vcf_input = sys.argv[1]
+	vcf_results_stub = sys.argv[2]
+	fasta_path = sys.argv[3]
 
 	# read in FASTA reference
 	fasta = pysam.FastaFile(fasta_path)
@@ -224,19 +225,22 @@ if __name__ == "__main__":
 
 	all_writer = writer_for_vcf(encoded_all_results_vcf)
 	writers = {
-		"del_L": [writer_for_vcf(encoded_del_L_results_vcf) + all_writer],
-		"del_R": [writer_for_vcf(encoded_del_R_results_vcf) + all_writer],
-		"ins": [writer_for_vcf(encoded_ins_results_vcf) + all_writer]
+		"del_L": [writer_for_vcf(encoded_del_L_results_vcf), all_writer],
+		"del_R": [writer_for_vcf(encoded_del_R_results_vcf), all_writer],
+		"ins": [writer_for_vcf(encoded_ins_results_vcf), all_writer]
 	}
 	
 	# write VCF headers to output files
 	chrom_lengths: Dict[str, int] = get_chrom_lengths(fasta)
-	for _, writer in writers.items():
-		write_header(writer, chrom_lengths)
+	for _, writers_list in writers.items():
+		for writer in writers_list:
+			write_header(writer, chrom_lengths)
 
 	# process variants
-	with open(vcf_results, "r") as t: 
+	with open(vcf_input, "r") as t: 
 		for variant in csv.reader(t, delimiter="\t"):
+			if variant[0].startswith("#"): # header
+				continue
 			process_variant(variant, writers, fasta)
 
 	# close output files
