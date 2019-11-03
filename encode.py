@@ -18,17 +18,12 @@ import sys
 # constants
 CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
 
-# types of Scotch calls
-PRED_TYPES = ["del_L", "del_R", "dOne", "ins"]
-# types of calls for which we subtract one from the position, to adjust indexing
-SHIFT_TYPES = ["del_L", "dOne", "ins"]
-
 OUTPUT_DELIMITER = "\t"
 # vcf fields
 ID = "."
 QUAL = "100"
 FILTER = "PASS"
-INFO = "-"
+INFO = "."
 FORMAT = "GT"
 GT = "0/1"
 
@@ -42,10 +37,6 @@ def write_header(writer: Any, chrom_lengths: Dict[str, int]) -> None:
 	# generic vcf headers
 	headers: [str] = ["##fileformat=VCFv4.1"]
 	headers.append("##phasing=none")
-	headers.append("##ALT=<ID=DEL_L, Description=\"Deletion Start\">")
-	headers.append("##ALT=<ID=DEL_R, Description=\"Deletion End\">")
-	headers.append("##ALT=<ID=INS,Description=\"Insertion\">")
-	headers.append("##INFO=<ID=PROBS,Number=1,Type=String,Description=\"Class probabilites from random forest model\">")
 	headers.append("##FORMAT=<ID=GT,Number=1, Type=String,Description=\"Genotype\">")
 
 	for header in headers:
@@ -68,13 +59,6 @@ def get_nucs(ref: Any, chrom: str, start: int, end: int = None) -> str:
 	zero_based_start: int = start - 1
 	zero_based_end: int = end - 1
 	return ref.fetch(chrom, zero_based_start, zero_based_end).upper()
-
-# shift position of calls of certain types
-def shift_pos_for_pred_type(pos: int, pred_type: str) -> int:
-	if pred_type in SHIFT_TYPES:
-		return pos - 1
-	else:
-		return pos
 
 # for encoded vcfs, pick an arbitrary distinct allele for alt
 def get_alt_for_ref(ref: str) -> str:
@@ -137,7 +121,7 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 	
 				del_R_writers = writers["del_R"]
 				del_R_pos = pos
-				write_variant(fasta, deL_R_writers, chrom-chrom, pos=del_R_pos)
+				write_variant(fasta, del_R_writers, chrom=chrom, pos=del_R_pos)
 
 			elif (alt == DEL_TAG): # Pindel deletion
 
@@ -232,9 +216,9 @@ if __name__ == "__main__":
 	
 	# write VCF headers to output files
 	chrom_lengths: Dict[str, int] = get_chrom_lengths(fasta)
+	write_header(all_writer, chrom_lengths)
 	for _, writers_list in writers.items():
-		for writer in writers_list:
-			write_header(writer, chrom_lengths)
+		write_header(writers_list[0], chrom_lengths)
 
 	# process variants
 	with open(vcf_input, "r") as t: 

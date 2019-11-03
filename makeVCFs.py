@@ -8,10 +8,12 @@
 
 import csv
 import os
+from pathlib import Path
 import pysam
 import textwrap
 from typing import Any, Dict, List
 import typing
+import subprocess
 import sys
 
 # constants
@@ -19,8 +21,10 @@ CHROMS = list(str(c) for c in range(1, 23)) + ["X", "Y"]
 
 # types of Scotch calls
 PRED_TYPES = ["del_L", "del_R", "dOne", "ins"]
-# types of calls for which we subtract one from the position, to adjust indexing
-SHIFT_TYPES = ["del_L", "dOne", "ins"]
+# types of calls for which we subtract 1 from the position, to adjust indexing
+SHIFT_TYPES = ["ins"]
+# types of calls for which we subtract 2 from the position, to adjust indexing
+SHIFT_TWICE_TYPES = ["del_L", "dOne"]
 
 OUTPUT_DELIMITER = "\t"
 # vcf fields
@@ -31,6 +35,18 @@ INFO_TEMPLATE = "PROBS={}"
 FORMAT = "GT"
 GT = "./."
 ENCODE_GT = "0/1"
+
+# run a script
+def run_script(script_name, *args):
+	scotch_dir: Path = Path(__file__).absolute().parent
+	script: Path = scotch_dir / script_name
+	str_args = [str(a) for a in args]
+	print(f"Running {script} with {str_args}")
+
+	if script.suffix != ".py":
+		subprocess.call([script] + str_args)
+	else:
+		subprocess.call(["python", script] + str_args)
 
 # get chromosome lengths from fasta reference for ##contig headers
 def get_chrom_lengths(fasta: Any) -> Dict[str, int]:
@@ -71,7 +87,9 @@ def get_nucs(ref: Any, chrom: str, start: int, end: int = None) -> str:
 
 # shift position of calls of certain types
 def shift_pos_for_pred_type(pos: int, pred_type: str) -> int:
-	if pred_type in SHIFT_TYPES:
+	if pred_type in SHIFT_TWICE_TYPES:
+		return pos - 2
+	elif pred_type in SHIFT_TYPES:
 		return pos - 1
 	else:
 		return pos
@@ -91,10 +109,9 @@ def get_alt_for_ref(ref: str) -> str:
 		return "A"
 
 # write a variant with given fields to a list of writers
-def write_variant(writers: List[Any], chrom: str, pos: int, ref: str, alt: str, info: str, gt: str) -> None:
+def write_variant(writers: Any, chrom: str, pos: int, ref: str, alt: str, info: str, gt: str) -> None:
 	variant_row = [chrom, pos, ID, ref, alt, QUAL, FILTER, info, FORMAT, gt]
-	for writer in writers:
-		writer.writerow(variant_row)
+	writer.writerow(variant_row)
 
 # process variant, writing to VCFs
 def process_variant(variant: List[str], writer: Any, fasta: Any) -> None:
@@ -112,10 +129,9 @@ def process_variant(variant: List[str], writer: Any, fasta: Any) -> None:
 
 	# write results to standard vcf
 	if pred_type == "dOne": 
-		# base at shifted_pos is deleted, base at (shifted_pos - 1) is retained
-		ref: str = get_nucs(fasta, chrom, shifted_pos - 1, shifted_pos + 1)
-		alt: str = get_nucs(fasta, chrom, shifted_pos - 1)
-		write_variant(writer, chrom, shifted_pos - 1, ref, alt, info, GT)
+		ref: str = get_nucs(fasta, chrom, shifted_pos, shifted_pos + 2)
+		alt: str = get_nucs(fasta, chrom, shifted_pos)
+		write_variant(writer, chrom, shifted_pos, ref, alt, info, GT)
 	else:
 		alt: str = f"<{pred_type.upper()}>"
 		write_variant(writer, chrom, shifted_pos, shifted_pos_ref, alt, info, GT)
@@ -131,7 +147,8 @@ if __name__ == "__main__":
 	fasta = pysam.FastaFile(fasta_path)
 
 	# set up output
-	results_vcf = open(f"{vcf_results_stub}.vcf", "w")
+	results_vcf_path = f"{vcf_results_stub}.vcf"
+	results_vcf = open(results_vcf_path, "w")
 	writer = csv.writer(results_vcf, delimiter=OUTPUT_DELIMITER, quoting=csv.QUOTE_NONE, quotechar="")
 
 	# write VCF headers to output files
@@ -145,7 +162,6 @@ if __name__ == "__main__":
 
 	# close output files
 	results_vcf.close()
-	for vcf in [results_vcf, encoded_del_L_results_vcf, encoded_del_R_results_vcf, encoded_ins_results_vcf, encoded_all_results_vcf]:
-		vcf.close()
 	
-	# run_script("encode.py")
+	# produce encoded VCFs
+	run_script("encode.py", results_vcf_path, vcf_results_stub, fasta_path)
