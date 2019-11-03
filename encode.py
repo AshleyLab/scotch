@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Convert Scotch output to VCF format
-# Called by doPredict.sh as
-# 	python makeVCF.py [tsv results] [fasta ref] [vcf results stub]
-# Writes the full results in VCF format to ${output-stub}.vcf,
-
-# Shifts the positions of del_L, dOne, and ins down by 1
+# Converts a standard VCF into four encoded VCFs
+# one for deletion start (del_L) breakpoints, one for deletion end (del_R) breakpoints,
+# one for insertion (ins) breakpoints, and one for all these breakpoints combined,
+# where each "SNP" in the VCF represents an indel breakpoint
+# Called (e.g., by makeVCFs.py) as
+# 	python encode.py [vcf] [vcf results stub] [fasta ref]
 
 import csv
 import os

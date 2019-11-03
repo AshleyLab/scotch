@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-# Convert Scotch output to VCF format
+# Convert Metal TSV output to VCF format
 # Called by doPredict.sh as
 # 	python makeVCF.py [tsv results] [fasta ref] [vcf results stub]
-# Writes the full results in VCF format to ${output-stub}.vcf,
-
-# Shifts the positions of del_L, dOne, and ins down by 1
+# Writes the full results in VCF format to ${stub}.vcf
 
 import csv
 import os
