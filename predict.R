@@ -17,19 +17,12 @@ options(warn = 1, scipen = 999, keep.source = TRUE, error =
     }
   }))
 
-#Load libraries 
-library(ada)
 library(data.table)
-library(e1071)
-library(plyr)
+library(reshape)
 library(randomForest)
-library(reshape) 
-library(R.utils)
-library(zoo)
 
 getHeader <- function() { 
 
-	#mapQDelta,baseQDelta ; depthDelta,nReadsDelta switched
 	return(c("chrom","pos","depthNorm","nReadsNorm","mapQ","baseQ","allSCRatio","edgeSCRatio","insRatio","edgeDelRatio","scCons","scQual","nHQual","scDist","depthDeltaNorm","nReadsDeltaNorm","mapQDeltaNorm","baseQDeltaNorm","allSCDeltaNorm","edgeSCDeltaNorm","insDeltaNorm","edgeDelDeltaNorm","scConsDelta","scQualDelta","nistHC","repMasker","segDups","LCR","gc50","gc1000","map100","uniq35","depthDeltaNorm2","nReadsDeltaNorm2","mapQDeltaNorm2","baseQDeltaNorm2","allSCDeltaNorm2","edgeSCDeltaNorm2","insDeltaNorm2","edgeDelDeltaNorm2","scConsDelta2","scQualDelta2"))
 
 }
@@ -49,7 +42,6 @@ doPredict <- function(fm, model, outPath) {
 	predClass = colnames(probs)[max.col(probs, ties.method = "first")]
 
 	#combine probabilites (rounding to 3 places), into comma-delimited string
-	#probsString = do.call(paste, c(round(as.data.frame(probs), digits=3), sep=","))
 	allResults = data.frame(fm$chrom, fm$pos, predClass, probs) #probsString)
 
 	#remove normal positions
