@@ -11,6 +11,11 @@ $ git clone https://github.com/AshleyLab/scotch-data
 
 ## Dependencies
 
+Scotch requires the following command-line utilities:
+```
+samtools
+```
+
 Scotch requires the following Python packages:
 
 ```
