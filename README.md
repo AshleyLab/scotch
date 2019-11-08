@@ -8,6 +8,22 @@ Clone this repository. And clone the [repository](https://github.com/AshleyLab/s
 $ git clone https://github.com/AshleyLab/scotch.git
 $ git clone https://github.com/AshleyLab/scotch-data
 ```
+
+## Dependencies
+
+Scotch requires the following Python packages:
+
+```
+numpy
+pysam
+```
+Scotch requires the following R packages:
+```
+data.table
+reshape
+randomForest
+```
+
 ## Run 
 
 ### Overview
