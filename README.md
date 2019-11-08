@@ -68,7 +68,7 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 
 ### Common arguments
 
-* `--project_dir` (exc. for prepare-region-features)
+* `--project_dir` (exc. for prepare-region-features): for a run of Scotch, where intermediate and output files should be stored
 
 ## Pipeline stages
 
@@ -85,7 +85,7 @@ Scotch's model relies on eight *region features* that describe the reference gen
 * `--project_dir`
 * `--bam`: path to indexed, BWA-aligned, whole-genome, next-generation input sequencing data
 
-Scotch removes duplicate reads from the input bam with `samtools rmdup`. We found the best results with calculating our features from such a bam with duplicates removed. 
+Scotch removes duplicate reads from the input bam with `samtools rmdup`.
 
 ### `unclip-bam`
 ##### Required args
@@ -148,30 +148,8 @@ Combines the results of `get-features-depth`, `get-features-nReads`, and `get-fe
 * `--chrom`
 * `--fasta_ref` 
 
-From the feature matrix, makes predictions against Scotch's random forest model. 
+From the feature matrix, makes predictions against Scotch's random forest model. In the directory `{project_dir}/results/results.{chrom}.vcf` and other output files described further below. 
 
-## Output
-
-### Encoding
-
-## More
-
-### Features
-Scotch’s model evaluates each position with respect to 40 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. 
-
-#### Primary features
-These 12 features are calculated directly from the sequencing data. Three describe coverage—including the number of reads, reads with no soft-clipping, and reads with a base quality of 13 or higher. Each of these are normalized across the sample for comparability with samples from various sequencing runs. Two more features describe the quality of the sequencing—the mean base quality and the mean mapping quality across all reads. Four more are calculated from the CIGAR string that details each read’s alignment to the reference—recording the proportion of bases at that position across all reads that are marked as inserted, deleted, soft-clipped, and that at are at the boundary of soft-clipping (i.e., the base is soft-clipped but at least one neighboring base is not). Two more features describe the soft-clipping of the reads, if present: one gives the mean base quality of soft-clipped bases, another gives the *consistency score* of the soft-clipping. 
-
-A position’s consistency score is a metric we derived that gives the ratio of the number of reads supporting the most common soft-clipped base (i.e., A, T, C, or G), to the number of all soft-clipped reads. Soft-clipping provides important signal of an indel to our model; this score helps a model distinguish indel-related soft-clipping (where all soft-clipped reads should support the same nucleotide) from that caused by low sequencing quality (where different nucleotides will be present). 
-
-#### Delta features
-20 additional features give the change in each of the primary features listed above— except the soft-clipping consistency score—from a given locus to both of its neighbors.  
-
-#### Genomic features
-Eight features, lastly, are derived from the reference genome, providing Scotch with insight into regions where sequencing errors are more common. Four of these features are binary: they indicate whether a genomic position is located in high-confidence regions, “superdup” regions, repetitive regions, and low-complexity regions. The remaining four describe GC-content (in windows of 50 and 1000 bp), mappability, and uniqueness. 
-
-### Prediction 
-These features are combined in a human-readable TSV that can serve as the input to any number of machine-learning setups. We trained several random forest models to identify the signals of indels in this data. The primary output of Scotch is a VCF file that lists all breakpoints discovered, their confidence, and their type. 
 
 ### Output
 
@@ -188,3 +166,18 @@ Since this process preserves breakpoint position, these files can be input to be
 ```
 python encode.py input.vcf output_stub reference.fa
 ```
+
+## Features
+
+Scotch’s model evaluates each position with respect to 40 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. 
+
+#### Primary features
+These 12 features are calculated directly from the sequencing data. Three describe coverage—including the number of reads, reads with no soft-clipping, and reads with a base quality of 13 or higher. Each of these are normalized across the sample for comparability with samples from various sequencing runs. Two more features describe the quality of the sequencing—the mean base quality and the mean mapping quality across all reads. Four more are calculated from the CIGAR string that details each read’s alignment to the reference—recording the proportion of bases at that position across all reads that are marked as inserted, deleted, soft-clipped, and that at are at the boundary of soft-clipping (i.e., the base is soft-clipped but at least one neighboring base is not). Two more features describe the soft-clipping of the reads, if present: one gives the mean base quality of soft-clipped bases, another gives the *consistency score* of the soft-clipping. 
+
+A position’s consistency score is a metric we derived that gives the ratio of the number of reads supporting the most common soft-clipped base (i.e., A, T, C, or G), to the number of all soft-clipped reads. Soft-clipping provides important signal of an indel to our model; this score helps a model distinguish indel-related soft-clipping (where all soft-clipped reads should support the same nucleotide) from that caused by low sequencing quality (where different nucleotides will be present). 
+
+#### Delta features
+20 additional features give the change in each of the primary features listed above— except the soft-clipping consistency score—from a given locus to both of its neighbors.  
+
+#### Genomic features
+Eight features, lastly, are derived from the reference genome, providing Scotch with insight into regions where sequencing errors are more common. Four of these features are binary: they indicate whether a genomic position is located in high-confidence regions, “superdup” regions, repetitive regions, and low-complexity regions. The remaining four describe GC-content (in windows of 50 and 1000 bp), mappability, and uniqueness. 
