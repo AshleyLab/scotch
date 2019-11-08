@@ -1,5 +1,7 @@
 # Scotch
 
+Scotch is a machine-learning caller for indels.
+
 ## Installation 
 
 Clone this repository. And clone the [repository](https://github.com/AshleyLab/scotch-data) with pre-calculated features that describe the reference genome. 
@@ -63,10 +65,6 @@ done
 
 ### Input
 Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome next generation sequencing data. Scotch also accepts a FASTA file providing the corresponding reference genome. Scotch divides the input by chromosome for parallel processing. 
-
-*GRCH37*??
-
-#### Output
 
 ### Common arguments
 
@@ -152,13 +150,17 @@ Combines the results of `get-features-depth`, `get-features-nReads`, and `get-fe
 
 From the feature matrix, makes predictions against Scotch's random forest model. 
 
+## Output
+
+### Encoding
+
 ## More
 
 ### Features
-Scotch’s model evaluates each position with respect to 39 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. Information on feature importance is available in the Supplementary Note (Supplementary Fig. 1, Supplementary Table 25). 
+Scotch’s model evaluates each position with respect to 40 features. These include “primary metrics,” quantities which are extracted directly from sequencing data; “delta features” which track the differences in primary features between neighboring positions; and “genomic features,” which describe the content of the reference genome at a given locus. 
 
 #### Primary features
-These 11 features are calculated directly from the sequencing data. Three describe coverage—including the number of reads, reads with no soft-clipping, and reads with a base quality of 13 or higher. Each of these are normalized across the sample for comparability with samples from various sequencing runs. Two more features describe the quality of the sequencing—the mean base quality and the mean mapping quality across all reads. Four more are calculated from the CIGAR string that details each read’s alignment to the reference—recording the proportion of bases at that position across all reads that are marked as inserted, deleted, soft-clipped, and that at are at the boundary of soft-clipping (i.e., the base is soft-clipped but at least one neighboring base is not). Two more features describe the soft-clipping of the reads, if present: one gives the mean base quality of soft-clipped bases, another gives the *consistency score* of the soft-clipping. 
+These 12 features are calculated directly from the sequencing data. Three describe coverage—including the number of reads, reads with no soft-clipping, and reads with a base quality of 13 or higher. Each of these are normalized across the sample for comparability with samples from various sequencing runs. Two more features describe the quality of the sequencing—the mean base quality and the mean mapping quality across all reads. Four more are calculated from the CIGAR string that details each read’s alignment to the reference—recording the proportion of bases at that position across all reads that are marked as inserted, deleted, soft-clipped, and that at are at the boundary of soft-clipping (i.e., the base is soft-clipped but at least one neighboring base is not). Two more features describe the soft-clipping of the reads, if present: one gives the mean base quality of soft-clipped bases, another gives the *consistency score* of the soft-clipping. 
 
 A position’s consistency score is a metric we derived that gives the ratio of the number of reads supporting the most common soft-clipped base (i.e., A, T, C, or G), to the number of all soft-clipped reads. Soft-clipping provides important signal of an indel to our model; this score helps a model distinguish indel-related soft-clipping (where all soft-clipped reads should support the same nucleotide) from that caused by low sequencing quality (where different nucleotides will be present). 
 
@@ -168,5 +170,21 @@ A position’s consistency score is a metric we derived that gives the ratio of 
 #### Genomic features
 Eight features, lastly, are derived from the reference genome, providing Scotch with insight into regions where sequencing errors are more common. Four of these features are binary: they indicate whether a genomic position is located in high-confidence regions, “superdup” regions, repetitive regions, and low-complexity regions. The remaining four describe GC-content (in windows of 50 and 1000 bp), mappability, and uniqueness. 
 
-### Prediction and Output
+### Prediction 
 These features are combined in a human-readable TSV that can serve as the input to any number of machine-learning setups. We trained several random forest models to identify the signals of indels in this data. The primary output of Scotch is a VCF file that lists all breakpoints discovered, their confidence, and their type. 
+
+### Output
+
+Scotch produces several output files. `scotch.${chrom}.vcf` includes all the results in VCF format. Alternate alleles may be represented as`<DEL_L>`,`<DEL_R>` or `<INS>` representing a deletion start, deletion end or insertion breakpoint, respectively. 
+
+#### Encoding
+
+Scotch also produces several VCF files where indel breakpoints are _encoded_ as regular variants. The motivation is that some tools (including Scotch and Pindel) do not report the nucleotide sequence of alternate alleles for all variants. (They may, for example, report just `<INS>` instead.) As a result, output VCFs that include their call may not be recognized as conforming to valid VCFs. 
+
+`encode.py` translates each indel breakpoint into an SNV at the same locus with an arbitary alternate allele, producing strictly valid VCF output. `[stub].encode_del_L.vcf` includes deletion start breakpoints represented this way, `[stub].encode_del_R.vcf` includes deletion end breakpoints, `[stub].encode_ins.vcf` includes insertion breakpoints, and `[stub].encode_all.vcf` includes all breakpoints. 
+
+Since this process preserves breakpoint position, these files can be input to benchmarking tools like GA4GH Benchmarking that execute a distance-based comparison to evaluate tools' performance. Truth VCFs and the VCFs output by other callers to be benchmarked should also be encoded by `encode.py`. The script is called as
+
+```
+python encode.py input.vcf output_stub reference.fa
+```

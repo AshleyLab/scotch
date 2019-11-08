@@ -114,7 +114,7 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 			elif (alt == DEL_L_TAG):
 			
 				del_L_writers = writers["del_L"]
-				del_L_pos = pos + 1
+				del_L_pos = pos + 1	# add 1 to get the first deleted base
 				write_variant(fasta, del_L_writers, chrom=chrom, pos=del_L_pos)
 
 			elif (alt == DEL_R_TAG):
@@ -127,7 +127,7 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 
 				# DEL_L
 				del_L_writers = writers["del_L"]
-				del_L_pos = pos + 1
+				del_L_pos = pos + 1	# add 1 to get the first deleted base
 				write_variant(fasta, deL_L_writers, chrom=chrom, pos=del_L_pos)
 
 				# DEL_R
@@ -155,7 +155,7 @@ def process_variant(variant: List[str], writers: Dict[str, Any], fasta: Any) -> 
 	
 				# DEL_L
 				del_L_writers = writers["del_L"]
-				del_L_pos = pos + 1
+				del_L_pos = pos + 1	# add 1 to get the first deleted base
 				write_variant(fasta, del_L_writers, chrom=chrom, pos=del_L_pos)
 
 				# DEL_R
