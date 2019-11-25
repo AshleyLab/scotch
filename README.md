@@ -8,7 +8,8 @@ Clone this repository. And clone the [repository](https://github.com/AshleyLab/s
 
 ```
 $ git clone https://github.com/AshleyLab/scotch.git
-$ git clone https://github.com/AshleyLab/scotch-data
+$ git clone https://github.com/AshleyLab/scotch-data-grch37 # for GRCh37
+$ git clone https://github.com/AshleyLab/scotch-data-grch38 # for GRCh38
 ```
 
 ## Dependencies
