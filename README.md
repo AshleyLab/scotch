@@ -4,7 +4,7 @@ Scotch is a machine-learning caller for indels.
 
 ## Installation 
 
-Clone this repository. And clone the [repository](https://github.com/AshleyLab/scotch-data) with pre-calculated features that describe the reference genome. 
+Clone this repository. And clone the repository with pre-calculated features that describe the reference genome for the genome build you're using. 
 
 ```
 $ git clone https://github.com/AshleyLab/scotch.git
