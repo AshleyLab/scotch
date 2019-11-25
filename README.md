@@ -37,7 +37,8 @@ randomForest
 ### Overview
 
 ```
-# extract downloaded region features for GRCh37 regions of interest
+# extract downloaded region features for regions of interest
+# ~/scotch-data/ is clone of https://github.com/AshleyLab/scotch-data-grch37 or https://github.com/AshleyLab/scotch-data-grch38
 python ~/scotch/scotch.py prepare-region-features --beds_dir=~/beds/ --all_rfs_dir=~/scotch-data/ --output_trim_rfs_dir=~/trim_rfs/
 
 # remove duplicate reads from input BAM
@@ -69,7 +70,11 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 
 ### Common arguments
 
-* `--project_dir` (exc. for prepare-region-features): for a run of Scotch, where intermediate and output files should be stored
+* `--project_dir`: for a run of Scotch, where intermediate and output files should be stored
+* `--beds_dir`: a directory of BED files  specifying the genomic regions Scotch should analyze
+  * One file for each chrom `{{1..22},X,Y}.bed` (e.g., `4.bed`)
+  * Where each line of each file is in the format `chrom\tstart\tstop` to indicate the region `chrom:start-stop` (e.g., `4:12822-1423146`)
+    * Note: the expected format of `chrom` is `4` without the "chr", not `chr4`
 
 ## Pipeline stages
 
@@ -79,7 +84,7 @@ Scotch accepts a Binary Alignment Mapping (BAM) file containing whole-genome nex
 * `--all_rfs_dir`: path to directory with all region features, probably location where `https://github.com/AshleyLab/scotch-data-grch37` or `https://github.com/AshleyLab/scotch-data-grch38` was cloned
 * `--output_trim_rfs_dir`: path to directory where should output trimmed region features; can be an empty directory
 
-Scotch's model relies on eight *region features* that describe the reference genome. For convenience, we've computed them across the entire GRCh37 reference genome and made them available in another [repository](https://github.com/AshleyLab/scotch-data). Run this command with the bed files that describe your regions of interest to obtain the corresponding region features. 
+Scotch's model relies on eight *region features* that describe the reference genome. For convenience, we've computed them across the entire GRCh37 reference genome and made them available in two other repositories. Run this command with the bed files that describe your regions of interest to obtain the corresponding region features. 
 
 ### `rmdup-bam`
 ##### Required args
@@ -149,20 +154,20 @@ Combines the results of `get-features-depth`, `get-features-nReads`, and `get-fe
 * `--chrom`
 * `--fasta_ref` 
 
-From the feature matrix, makes predictions against Scotch's random forest model. In the directory `{project_dir}/results/results.{chrom}.vcf` and other output files described further below. 
+From the feature matrix, makes predictions against Scotch's random forest model. In the directory `{project_dir}/results/`, produces `results.{chrom}.vcf` and other output files described further below. 
 
 
 ### Output
 
-Scotch produces several output files. `scotch.${chrom}.vcf` includes all the results in VCF format. Alternate alleles may be represented as`<DEL_L>`,`<DEL_R>` or `<INS>` representing a deletion start, deletion end or insertion breakpoint, respectively. 
+Scotch produces several output files. `scotch.{chrom}.vcf` includes all the results in VCF format. Alternate alleles may be represented as`<DEL_L>`,`<DEL_R>` or `<INS>` representing a deletion start, deletion end or insertion breakpoint, respectively. 
 
 #### Encoding
 
-Scotch also produces several VCF files where indel breakpoints are _encoded_ as regular variants. The motivation is that some tools (including Scotch and Pindel) do not report the nucleotide sequence of alternate alleles for all variants. (They may, for example, report just `<INS>` instead.) As a result, output VCFs that include their call may not be recognized as conforming to valid VCFs. 
+Scotch also produces several VCF files where indel breakpoints are _encoded_ as regular variants. The motivation is that some tools (including Scotch and Pindel) do not report the nucleotide sequence of alternate alleles for all variants. (They may, for example, report just `<INS>` instead.) As a result, output VCFs that include their calls may not be recognized as valid VCFs. 
 
-`encode.py` translates each indel breakpoint into an SNV at the same locus with an arbitary alternate allele, producing strictly valid VCF output. `[stub].encode_del_L.vcf` includes deletion start breakpoints represented this way, `[stub].encode_del_R.vcf` includes deletion end breakpoints, `[stub].encode_ins.vcf` includes insertion breakpoints, and `[stub].encode_all.vcf` includes all breakpoints. 
+`encode.py` translates each indel breakpoint into an SNV at the same locus with an arbitary alternate allele, producing strictly valid VCF output. `{stub}.encode_del_L.vcf` includes deletion start breakpoints represented this way, `{stub}.encode_del_R.vcf` includes deletion end breakpoints, `{stub}.encode_ins.vcf` includes insertion breakpoints, and `{stub}.encode_all.vcf` includes all breakpoints. 
 
-Since this process preserves breakpoint position, these files can be input to benchmarking tools like GA4GH Benchmarking that execute a distance-based comparison to evaluate tools' performance. Truth VCFs and the VCFs output by other callers to be benchmarked should also be encoded by `encode.py`. The script is called as
+Since this process preserves breakpoint position, these files can be input to benchmarking tools like GA4GH Benchmarking on precisionFDA, which execute a distance-based comparison to evaluate tools' performance. Truth VCFs and the VCFs output by other callers to be benchmarked should also be encoded by `encode.py`. The script is called as
 
 ```
 python encode.py input.vcf output_stub reference.fa
@@ -181,4 +186,4 @@ A position’s consistency score is a metric we derived that gives the ratio of 
 20 additional features give the change in each of the primary features listed above— except the soft-clipping consistency score—from a given locus to both of its neighbors.  
 
 #### Genomic features
-Eight features, lastly, are derived from the reference genome, providing Scotch with insight into regions where sequencing errors are more common. Four of these features are binary: they indicate whether a genomic position is located in high-confidence regions, “superdup” regions, repetitive regions, and low-complexity regions. The remaining four describe GC-content (in windows of 50 and 1000 bp), mappability, and uniqueness. 
+Eight features, lastly, are derived from the reference genome, providing Scotch with insight into regions where sequencing errors are more common. Four of these features are binary: they indicate whether a genomic position is located in high-confidence regions, “superdup” regions, repetitive regions, and low-complexity regions. The remaining four describe GC-content (in windows of 50 and 1000 bp), mappability, and uniqueness. For GRCh37, they're available at `https://github.com/AshleyLab/scotch-data-grch37`. For GRCh38, they're availalbe at `https://github.com/AshleyLab/scotch-data-grch38`.
